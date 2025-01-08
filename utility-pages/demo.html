@@ -98,19 +98,49 @@
   <script src="../js/webflow.js" type="text/javascript"></script>
   <script>
     const phoneInput = document.getElementById('Telefon');
-    phoneInput.addEventListener('input', function() {
-      this.value = formatPhoneNumber(this.value);
-    });
+    const form = document.getElementById('demo-form');
 
-    function formatPhoneNumber(phoneNumber) {
-      phoneNumber = phoneNumber.replace(/\D/g, '');
-
+    // Telefon numarası formatlaması
+    phoneInput.addEventListener('input', function(e) {
+      let phoneNumber = e.target.value.replace(/\D/g, '');
       if (phoneNumber.length > 10) {
         phoneNumber = phoneNumber.slice(0, 10);
       }
+      e.target.value = phoneNumber;
+    });
 
-      return phoneNumber;
-    }
+    // Form gönderimi
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      try {
+        const formData = new FormData(form);
+        const data = {};
+        formData.forEach((value, key) => {
+          data[key] = value;
+        });
+
+        const response = await fetch('../demo-form', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          alert('Form başarıyla gönderildi!');
+          form.reset();
+        } else {
+          throw new Error(result.error || 'Form gönderilirken bir hata oluştu');
+        }
+      } catch (error) {
+        console.error('Form gönderim hatası:', error);
+        alert('Form gönderilirken bir hata oluştu: ' + error.message);
+      }
+    });
   </script>
 </body>
 </html>

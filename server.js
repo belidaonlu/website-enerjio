@@ -8,9 +8,10 @@ const app = express();
 
 // CORS yapılandırması
 app.use(cors({
-  origin: '*',
+  origin: ['http://localhost:4000', 'http://127.0.0.1:4000'],
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 // Middleware'ler
@@ -28,6 +29,9 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_PASS
+  },
+  tls: {
+    rejectUnauthorized: false
   }
 });
 
@@ -35,8 +39,25 @@ const transporter = nodemailer.createTransport({
 transporter.verify((error, success) => {
   if (error) {
     console.error('E-posta yapılandırma hatası:', error);
+    console.error('Gmail kullanıcı adı:', process.env.GMAIL_USER);
+    // Şifreyi güvenlik nedeniyle loglamıyoruz
   } else {
     console.log('E-posta sunucusu hazır');
+    // Test e-postası gönder
+    const testMailOptions = {
+      from: process.env.GMAIL_USER,
+      to: process.env.GMAIL_USER,
+      subject: 'Test E-postası',
+      text: 'Bu bir test e-postasıdır.'
+    };
+    
+    transporter.sendMail(testMailOptions, (error, info) => {
+      if (error) {
+        console.error('Test e-postası gönderim hatası:', error);
+      } else {
+        console.log('Test e-postası başarıyla gönderildi:', info.response);
+      }
+    });
   }
 });
 
@@ -45,34 +66,60 @@ app.get('/', (req, res) => {
   res.sendFile('index.html', { root: '.' });
 });
 
-app.post('/demo-form', (req, res) => {
-  console.log('Demo form isteği alındı:', req.body);
+app.post('/demo-form', async (req, res) => {
+  console.log('Demo form isteği alındı');
+  console.log('Form verileri:', req.body);
   
-  const { 'İ-im-Soyisim': name, 'E-posta': email, Telefon: phone, irket: company, 'Web-sitesi': website, Pozisyon: position } = req.body;
+  try {
+    const { 'İ-im-Soyisim': name, 'E-posta': email, Telefon: phone, irket: company, 'Web-sitesi': website, Pozisyon: position } = req.body;
 
-  const mailOptions = {
-    from: process.env.GMAIL_USER,
-    to: 'noreply@enerj.io',
-    subject: 'Demo Formu Gönderimi',
-    text: `
-      İsim-Soyisim: ${name}
-      E-posta: ${email}
-      Telefon: ${phone}
-      Şirket: ${company}
-      Web Sitesi: ${website}
-      Pozisyon: ${position}
-    `
-  };
-
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) {
-      console.error('E-posta gönderim hatası:', error);
-      res.status(500).send('Bir hata oluştu, lütfen daha sonra tekrar deneyin.');
-    } else {
-      console.log('E-posta gönderildi:', info.response);
-      res.status(200).send('Demo formu başarıyla gönderildi.');
+    // Form verilerinin kontrolü
+    if (!name || !email || !phone) {
+      console.error('Eksik form verileri:', { name, email, phone });
+      return res.status(400).json({ 
+        error: 'Lütfen tüm zorunlu alanları doldurun',
+        received: { name, email, phone }
+      });
     }
-  });
+
+    const mailOptions = {
+      from: process.env.GMAIL_USER,
+      to: process.env.GMAIL_USER,
+      subject: 'Demo Formu Gönderimi',
+      text: `
+        İsim-Soyisim: ${name}
+        E-posta: ${email}
+        Telefon: ${phone}
+        Şirket: ${company || 'Belirtilmedi'}
+        Web Sitesi: ${website || 'Belirtilmedi'}
+        Pozisyon: ${position || 'Belirtilmedi'}
+      `
+    };
+
+    // Promise'e dönüştürülmüş sendMail
+    const info = await new Promise((resolve, reject) => {
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.error('E-posta gönderim hatası detayları:', error);
+          reject(error);
+        } else {
+          resolve(info);
+        }
+      });
+    });
+
+    console.log('E-posta başarıyla gönderildi:', info.response);
+    res.status(200).json({
+      success: true,
+      message: 'Demo formu başarıyla gönderildi'
+    });
+  } catch (error) {
+    console.error('İşlem hatası:', error);
+    res.status(500).json({
+      error: 'E-posta gönderilirken bir hata oluştu',
+      details: error.message
+    });
+  }
 });
 
 // Command line arguments parsing
