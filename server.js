@@ -52,7 +52,7 @@ app.post('/demo-form', (req, res) => {
 
   const mailOptions = {
     from: process.env.GMAIL_USER,
-    to: 'belidaonlu@gmail.com',
+    to: 'noreply@enerj.io',
     subject: 'Demo Formu Gönderimi',
     text: `
       İsim-Soyisim: ${name}
