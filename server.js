@@ -2,6 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
+const path = require('path');
+const blogRouter = require('./api/blog');
+
 dotenv.config();
 
 const app = express();
@@ -20,6 +23,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('.', { 
   extensions: ['html', 'htm']
 }));
+app.use(express.static(path.join(__dirname)));
+app.use('/api', blogRouter);
 
 console.log('Statik dosya dizini yapılandırıldı');
 
@@ -64,6 +69,14 @@ transporter.verify((error, success) => {
 app.get('/', (req, res) => {
   console.log('Ana sayfa isteği alındı');
   res.sendFile('index.html', { root: '.' });
+});
+
+app.get('/blog', (req, res) => {
+  res.sendFile(path.join(__dirname, 'blog.html'));
+});
+
+app.get('/blog-post', (req, res) => {
+  res.sendFile(path.join(__dirname, 'blog-post.html'));
 });
 
 app.post('/demo-form', async (req, res) => {
@@ -122,12 +135,7 @@ app.post('/demo-form', async (req, res) => {
   }
 });
 
-// Command line arguments parsing
-const args = process.argv.slice(2);
-const portArg = args.find(arg => arg.startsWith('--port='));
-const PORT = portArg ? parseInt(portArg.split('=')[1]) : process.env.PORT || 3000;
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Sunucu http://localhost:${PORT} adresinde çalışıyor`);
-  console.log(`Ayrıca http://127.0.0.1:${PORT} veya http://[yerel IP]:${PORT} üzerinden de erişilebilir`);
+const PORT = process.env.PORT || 4000; // Admin paneli 3000 portunu kullanıyor, biz 4000'i kullanalım
+app.listen(PORT, () => {
+  console.log(`Web sitesi sunucusu ${PORT} portunda çalışıyor`);
 });

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Enerj.io Blog</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="nav-bar">
+            <a href="/admin/new-post" class="btn">Yeni Yazı Ekle</a>
+            <a href="/admin/logout" style="float: right;">Çıkış Yap</a>
+        </div>
+
+        <h1>Blog Yazıları</h1>
+
+        <% if (typeof success !== 'undefined') { %>
+            <div class="alert alert-success"><%= success %></div>
+        <% } %>
+
+        <% if (typeof error !== 'undefined') { %>
+            <div class="alert alert-danger"><%= error %></div>
+        <% } %>
+
+        <ul class="post-list">
+            <% posts.forEach(post => { %>
+                <li class="post-item">
+                    <h2 class="post-title"><%= post.title %></h2>
+                    <div class="post-meta">
+                        Oluşturulma Tarihi: <%= new Date(post.createdAt).toLocaleDateString('tr-TR') %>
+                    </div>
+                    <div class="post-actions">
+                        <a href="/admin/edit-post/<%= post._id %>" class="edit-btn">Düzenle</a>
+                        <a href="/admin/delete-post/<%= post._id %>" class="delete-btn" onclick="return confirm('Bu yazıyı silmek istediğinizden emin misiniz?')">Sil</a>
+                    </div>
+                </li>
+            <% }) %>
+        </ul>
+    </div>
+</body>
+</html>

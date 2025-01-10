@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <title>Blog Yazısı - Enerj.io</title>
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <link href="css/normalize.css" rel="stylesheet" type="text/css">
+    <link href="css/webflow.css" rel="stylesheet" type="text/css">
+    <link href="css/enerjio.webflow.css" rel="stylesheet" type="text/css">
+    <link href="css/blog.css" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js" type="text/javascript"></script>
+    <script type="text/javascript">WebFont.load({ google: { families: ["Inter:regular,500,600,700"] } });</script>
+    <link href="images/favicon.png" rel="shortcut icon" type="image/x-icon">
+    <link href="images/webclip.png" rel="apple-touch-icon">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo w-nav-brand">
+                <img src="images/logo.svg" loading="lazy" alt="Enerj.io Logo" class="nav-logo-img">
+            </a>
+            <nav role="navigation" class="nav-menu">
+                <a href="/" class="nav-link">Anasayfa</a>
+                <a href="/hakkimizda" class="nav-link">Hakkımızda</a>
+                <a href="/hizmetlerimiz" class="nav-link">Hizmetlerimiz</a>
+                <a href="/blog" class="nav-link w--current">Blog</a>
+            </nav>
+            <div class="nav-buttons">
+                <a href="/dashboard" class="nav-button secondary">Dashboard</a>
+                <a href="/demo-talep" class="nav-button primary">Demo talep et</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="blog-post-container">
+        <div class="loading">Yükleniyor...</div>
+        <div class="error-message" style="display: none;">Blog yazısı yüklenirken bir hata oluştu.</div>
+        <article class="blog-post" style="display: none;">
+            <header class="blog-post-header">
+                <h1 class="blog-post-title"></h1>
+                <div class="blog-post-meta">
+                    <span class="post-date"></span>
+                    <span class="post-author"></span>
+                </div>
+            </header>
+            <div class="blog-post-image">
+                <img src="" alt="">
+            </div>
+            <div class="blog-post-content"></div>
+        </article>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-top">
+                <div class="footer-brand">
+                    <img src="images/logo-white.svg" loading="lazy" alt="Enerj.io Logo" class="footer-logo">
+                    <p class="footer-text">Enerji yönetim sistemleri ile işletmenizin enerji tüketimini optimize edin.</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-link-group">
+                        <h3 class="footer-heading">Şirket</h3>
+                        <a href="/hakkimizda" class="footer-link">Hakkımızda</a>
+                        <a href="/blog" class="footer-link">Blog</a>
+                    </div>
+                    <div class="footer-link-group">
+                        <h3 class="footer-heading">Ürün</h3>
+                        <a href="/hizmetlerimiz" class="footer-link">Hizmetlerimiz</a>
+                        <a href="/demo-talep" class="footer-link">Demo Talep</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-social">
+                    <a href="#" class="footer-social-link">LinkedIn</a>
+                </div>
+                <div class="footer-legal">
+                    <p class="footer-copyright"> 2024 Enerj.io. Tüm hakları saklıdır.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        async function loadBlogPost() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const postId = urlParams.get('id');
+                
+                if (!postId) {
+                    throw new Error('Blog yazısı ID\'si bulunamadı');
+                }
+
+                const response = await fetch(`http://localhost:4000/api/posts/${postId}`);
+                if (!response.ok) {
+                    throw new Error('Blog yazısı yüklenemedi');
+                }
+
+                const post = await response.json();
+                
+                // Blog yazısı içeriğini güncelle
+                document.querySelector('.blog-post-title').textContent = post.title;
+                document.querySelector('.post-date').textContent = new Date(post.createdAt).toLocaleDateString('tr-TR');
+                document.querySelector('.post-author').textContent = post.author || 'Enerj.io';
+                document.querySelector('.blog-post-image img').src = post.image;
+                document.querySelector('.blog-post-image img').alt = post.title;
+                document.querySelector('.blog-post-content').innerHTML = post.content;
+
+                // Loading durumunu güncelle
+                document.querySelector('.loading').style.display = 'none';
+                document.querySelector('.blog-post').style.display = 'block';
+
+            } catch (error) {
+                console.error('Blog yazısı yükleme hatası:', error);
+                document.querySelector('.loading').style.display = 'none';
+                document.querySelector('.error-message').style.display = 'block';
+            }
+        }
+
+        // Sayfa yüklendiğinde blog yazısını yükle
+        window.addEventListener('load', loadBlogPost);
+    </script>
+</body>
+</html>
