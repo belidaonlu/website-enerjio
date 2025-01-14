@@ -3,27 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Girişi - Enerj.io Blog</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css">
+    <title>Admin Girişi</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            background-color: #f8f9fa;
+        }
+        .login-container {
+            max-width: 400px;
+            width: 90%;
+            padding: 2rem;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .btn-google {
+            background-color: #fff;
+            color: #757575;
+            border: 1px solid #ddd;
+            padding: 0.5rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+        .btn-google:hover {
+            background-color: #f8f9fa;
+            border-color: #ddd;
+        }
+        .btn-google img {
+            width: 20px;
+            height: 20px;
+        }
+        .error-message {
+            display: none;
+            color: #dc3545;
+            margin-top: 1rem;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <div class="login-container">
-        <h1 class="login-title">Admin Girişi</h1>
-        <% if (typeof error !== 'undefined') { %>
-            <div class="alert alert-danger"><%= error %></div>
-        <% } %>
-        <form action="/admin/login" method="POST">
-            <div class="form-group">
-                <label for="username">Kullanıcı Adı</label>
-                <input type="text" id="username" name="username" required>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-12">
+                <div class="login-container mx-auto">
+                    <h2 class="text-center mb-4">Admin Girişi</h2>
+                    <p class="text-center text-muted mb-4">
+                        Sadece @enerj.io uzantılı e-postalar ile giriş yapabilirsiniz.
+                    </p>
+                    
+                    <div class="text-center">
+                        <button id="googleLogin" class="btn btn-google w-100">
+                            <img src="https://www.google.com/favicon.ico" alt="Google">
+                            Google ile Giriş Yap
+                        </button>
+                    </div>
+                    
+                    <div id="error-message" class="error-message"></div>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="password">Şifre</label>
-                <input type="password" id="password" name="password" required>
-            </div>
-            <button type="submit" class="btn">Giriş Yap</button>
-        </form>
+        </div>
     </div>
+
+    <!-- Firebase SDK'ları -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+
+    <script>
+        // Firebase yapılandırması
+        const firebaseConfig = {
+            apiKey: "AIzaSyB84ol0Fu-nJtU8I5S8dajMFVjhgdyFQ8Y",
+            authDomain: "enerjio-website.firebaseapp.com",
+            projectId: "enerjio-website",
+            storageBucket: "enerjio-website.firebasestorage.app",
+            messagingSenderId: "71871281855",
+            appId: "1:71871281855:web:6d198285f5d37495e1a40a",
+            measurementId: "G-LR8RX0VYF3"
+        };
+
+        // Firebase'i başlat
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        // Google provider
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({
+            hd: 'enerj.io',
+            prompt: 'select_account'
+        });
+
+        // Auth state değişikliklerini dinle
+        firebase.auth().onAuthStateChanged(function(user) {
+            if (user) {
+                console.log('User signed in:', user.email); // Debug log
+                user.getIdToken().then(function(idToken) {
+                    console.log('Got ID token, sending to backend...'); // Debug log
+                    
+                    // Backend'e token'ı gönder
+                    fetch('/admin/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ idToken: idToken }),
+                        credentials: 'include'
+                    })
+                    .then(response => {
+                        console.log('Backend response status:', response.status); // Debug log
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Backend response:', data); // Debug log
+                        if (data.success) {
+                            window.location.href = '/admin/dashboard';
+                        } else {
+                            showError(data.message || 'Giriş başarısız');
+                            firebase.auth().signOut();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Login error:', error);
+                        showError('Giriş işlemi sırasında bir hata oluştu');
+                        firebase.auth().signOut();
+                    });
+                });
+            }
+        });
+
+        // Google ile giriş işlemi
+        document.getElementById('googleLogin').addEventListener('click', async () => {
+            try {
+                // Popup ile giriş yapalım, redirect yerine
+                const result = await firebase.auth().signInWithPopup(provider);
+                console.log('Google sign in successful');
+            } catch (error) {
+                console.error('Login error:', error);
+                showError('Giriş işlemi sırasında bir hata oluştu');
+            }
+        });
+
+        // Hata mesajını göster
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+            }
+        }
+    </script>
 </body>
 </html>
