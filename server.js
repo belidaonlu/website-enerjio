@@ -3,7 +3,6 @@ const cors = require('cors');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
 const path = require('path');
-const blogRouter = require('./api/blog');
 
 dotenv.config();
 
@@ -24,7 +23,6 @@ app.use(express.static('.', {
   extensions: ['html', 'htm']
 }));
 app.use(express.static(path.join(__dirname)));
-app.use('/api', blogRouter);
 
 console.log('Statik dosya dizini yapılandırıldı');
 

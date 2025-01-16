@@ -25,7 +25,7 @@ const port = process.env.PORT || 3002; // Port 3002'e değiştirildi
 
 // CORS ayarları
 app.use(cors({
-    origin: ['http://localhost:3001', 'http://localhost:4000', 'http://localhost:3000'],
+    origin: ['http://localhost:3001', 'http://localhost:4000', 'http://127.0.0.1:4000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
@@ -360,6 +360,93 @@ app.post('/admin/posts/:id/publish', requireAuth, async (req, res) => {
             message: 'Post yayınlanırken bir hata oluştu',
             error: error.message 
         });
+    }
+});
+
+// Public blog endpoint'leri
+app.get('/public/posts', async (req, res) => {
+    try {
+        console.log('Public blog yazıları talep edildi');
+        
+        // Firebase bağlantısını kontrol et
+        if (!admin.apps.length) {
+            console.error('Firebase bağlantısı bulunamadı');
+            return res.status(500).json({ error: 'Veritabanı bağlantısı kurulamadı' });
+        }
+
+        console.log('Firebase bağlantısı mevcut, koleksiyona erişiliyor...');
+        
+        // Şimdilik sadece yayınlanmış gönderileri al, sıralama yok
+        const snapshot = await postsCollection.where('published', '==', true).get();
+        const posts = [];
+        
+        console.log('Sorgu sonucu:', snapshot.size, 'adet yazı bulundu');
+        
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            console.log('Ham veri:', data);
+            
+            // Content bir dizi ise, birleştir
+            let content = '';
+            if (Array.isArray(data.content)) {
+                content = data.content.join(' ');
+            } else if (typeof data.content === 'string') {
+                content = data.content;
+            }
+            
+            console.log('Content tipi:', typeof content);
+            console.log('Content örneği:', content ? content.substring(0, 100) : 'İçerik yok');
+            
+            // HTML içeriğini düz metne çevir
+            let plainContent = '';
+            if (content) {
+                // HTML etiketlerini kaldır
+                plainContent = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            }
+            
+            posts.push({
+                _id: doc.id,
+                title: data.title || '',
+                content: plainContent,
+                image: data.coverImage ? data.coverImage.replace(/^\/uploads\//, '') : '', // coverImage'ı image olarak dönüştür ve /uploads/ önekini kaldır
+                createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+                published: data.published || false
+            });
+        });
+        
+        // Yazıları tarih sırasına göre JavaScript'te sırala
+        posts.sort((a, b) => b.createdAt - a.createdAt);
+        
+        console.log('İşlenmiş yazılar:', posts);
+        return res.json(posts);
+    } catch (error) {
+        console.error('Blog yazıları alınırken detaylı hata:', error);
+        return res.status(500).json({ 
+            error: 'Blog yazıları alınamadı',
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+app.get('/public/posts/:id', async (req, res) => {
+    try {
+        const doc = await postsCollection.doc(req.params.id).get();
+        if (!doc.exists) {
+            return res.status(404).json({ error: 'Blog yazısı bulunamadı' });
+        }
+        const data = doc.data();
+        res.json({
+            _id: doc.id,
+            title: data.title || '',
+            content: data.content || '',
+            image: data.image || '',
+            createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+            published: data.published || false
+        });
+    } catch (error) {
+        console.error('Blog yazısı alınırken hata:', error);
+        res.status(500).json({ error: 'Blog yazısı alınamadı' });
     }
 });
 

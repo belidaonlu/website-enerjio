@@ -1,24 +1,30 @@
 // Blog yazılarını yükle
 async function loadBlogPosts() {
     try {
-        const response = await fetch('http://localhost:4000/api/posts');
+        const response = await fetch('http://localhost:3002/public/posts');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const posts = await response.json();
+        console.log('Gelen blog yazıları:', posts);
+        
+        if (!Array.isArray(posts)) {
+            throw new Error('Blog yazıları bir dizi değil: ' + JSON.stringify(posts));
+        }
         
         const blogGrid = document.querySelector('.blog-grid');
         blogGrid.innerHTML = ''; // Mevcut içeriği temizle
         
         posts.forEach(post => {
-            const imageUrl = post.image ? `http://localhost:4000/uploads/${post.image}` : 'images/default-blog-image.jpg';
+            const imageUrl = post.image ? `http://localhost:3002/uploads/${post.image}` : '/images/default.jpg';
             
             const postElement = document.createElement('div');
             postElement.className = 'blog-card';
             
             const imageElement = document.createElement('img');
             imageElement.src = imageUrl;
-            imageElement.alt = post.title;
-            imageElement.onerror = () => {
-                imageElement.src = 'images/default-blog-image.jpg';
-            };
+            imageElement.alt = post.title || 'Blog görseli';
+            imageElement.className = 'blog-image-content';
             
             const imageContainer = document.createElement('div');
             imageContainer.className = 'blog-image';
