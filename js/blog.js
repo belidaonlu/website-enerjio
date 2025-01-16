@@ -4,6 +4,8 @@ async function loadBlogPosts() {
     const errorElement = document.querySelector('.error-message');
     const blogGrid = document.querySelector('.blog-grid');
 
+    if (!loadingElement || !errorElement || !blogGrid) return;
+
     try {
         // Yükleme başladığında
         loadingElement.style.display = 'block';
@@ -64,5 +66,29 @@ async function loadBlogPosts() {
     }
 }
 
-// Sayfa yüklendiğinde blog yazılarını yükle
-document.addEventListener('DOMContentLoaded', loadBlogPosts);
+// Back to top button functionality
+const backToTopButton = document.querySelector('.back-to-top');
+if (backToTopButton) {
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 300) {
+            backToTopButton.classList.add('is-visible');
+        } else {
+            backToTopButton.classList.remove('is-visible');
+        }
+    });
+
+    backToTopButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+}
+
+// Sayfa yüklendiğinde hangi fonksiyonun çalışacağını belirleyen kontrol eklendi
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.location.pathname.includes('blog.html')) {
+        loadBlogPosts();
+    }
+});
