@@ -90,6 +90,10 @@
 
     <script>
         async function loadBlogPost() {
+            const loadingElement = document.querySelector('.loading');
+            const errorElement = document.querySelector('.error-message');
+            const articleElement = document.querySelector('.blog-post');
+
             try {
                 const urlParams = new URLSearchParams(window.location.search);
                 const postId = urlParams.get('id');
@@ -98,29 +102,40 @@
                     throw new Error('Blog yazısı ID\'si bulunamadı');
                 }
 
-                const response = await fetch(`http://localhost:4000/api/posts/${postId}`);
-                if (!response.ok) {
-                    throw new Error('Blog yazısı yüklenemedi');
-                }
+                // Yükleme başladığında
+                loadingElement.style.display = 'block';
+                errorElement.style.display = 'none';
+                articleElement.style.display = 'none';
 
+                const response = await fetch(`http://localhost:3002/public/posts/${postId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const post = await response.json();
                 
-                // Blog yazısı içeriğini güncelle
+                // Blog yazısı içeriğini doldur
                 document.querySelector('.blog-post-title').textContent = post.title;
                 document.querySelector('.post-date').textContent = new Date(post.createdAt).toLocaleDateString('tr-TR');
-                document.querySelector('.post-author').textContent = post.author || 'Enerj.io';
-                document.querySelector('.blog-post-image img').src = post.image;
-                document.querySelector('.blog-post-image img').alt = post.title;
+                
+                const imageUrl = post.image ? `http://localhost:3002/uploads/${post.image}` : '/images/default.jpg';
+                const imageElement = document.querySelector('.blog-post-image img');
+                imageElement.src = imageUrl;
+                imageElement.alt = post.title;
+                
                 document.querySelector('.blog-post-content').innerHTML = post.content;
-
-                // Loading durumunu güncelle
-                document.querySelector('.loading').style.display = 'none';
-                document.querySelector('.blog-post').style.display = 'block';
-
+                
+                // Yükleme tamamlandığında
+                loadingElement.style.display = 'none';
+                articleElement.style.display = 'block';
+                
+                // Sayfa başlığını güncelle
+                document.title = `${post.title} - Enerj.io`;
+                
             } catch (error) {
-                console.error('Blog yazısı yükleme hatası:', error);
-                document.querySelector('.loading').style.display = 'none';
-                document.querySelector('.error-message').style.display = 'block';
+                console.error('Blog yazısı yüklenirken hata:', error);
+                loadingElement.style.display = 'none';
+                errorElement.style.display = 'block';
             }
         }
 

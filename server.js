@@ -3,14 +3,22 @@ const cors = require('cors');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
 const path = require('path');
+const admin = require('firebase-admin');
+const serviceAccount = require('./firebase-service-account.json');
 
 dotenv.config();
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+const db = admin.firestore();
 
 const app = express();
 
 // CORS yapılandırması
 app.use(cors({
-  origin: ['http://localhost:4000', 'http://127.0.0.1:4000'],
+  origin: ['http://localhost:4000', 'http://127.0.0.1:4000', 'http://localhost:3002'],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -75,6 +83,40 @@ app.get('/blog', (req, res) => {
 
 app.get('/blog-post', (req, res) => {
   res.sendFile(path.join(__dirname, 'blog-post.html'));
+});
+
+app.get('/public/posts', async (req, res) => {
+  try {
+    const postsRef = db.collection('posts');
+    const snapshot = await postsRef.orderBy('createdAt', 'desc').get();
+    
+    const posts = [];
+    snapshot.forEach(doc => {
+      posts.push({ id: doc.id, ...doc.data() });
+    });
+    
+    res.json(posts);
+  } catch (error) {
+    console.error('Blog yazıları getirme hatası:', error);
+    res.status(500).json({ error: 'Blog yazıları yüklenirken bir hata oluştu' });
+  }
+});
+
+app.get('/public/posts/:id', async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const postDoc = await db.collection('posts').doc(postId).get();
+    
+    if (!postDoc.exists) {
+      return res.status(404).json({ error: 'Blog yazısı bulunamadı' });
+    }
+    
+    const post = { id: postDoc.id, ...postDoc.data() };
+    res.json(post);
+  } catch (error) {
+    console.error('Blog yazısı getirme hatası:', error);
+    res.status(500).json({ error: 'Blog yazısı yüklenirken bir hata oluştu' });
+  }
 });
 
 app.post('/demo-form', async (req, res) => {

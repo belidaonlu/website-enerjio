@@ -1,6 +1,15 @@
 // Blog yazılarını yükle
 async function loadBlogPosts() {
+    const loadingElement = document.querySelector('.loading');
+    const errorElement = document.querySelector('.error-message');
+    const blogGrid = document.querySelector('.blog-grid');
+
     try {
+        // Yükleme başladığında
+        loadingElement.style.display = 'block';
+        errorElement.style.display = 'none';
+        blogGrid.innerHTML = '';
+
         const response = await fetch('http://localhost:3002/public/posts');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -11,9 +20,14 @@ async function loadBlogPosts() {
         if (!Array.isArray(posts)) {
             throw new Error('Blog yazıları bir dizi değil: ' + JSON.stringify(posts));
         }
+
+        // Blog yazıları başarıyla yüklendi
+        loadingElement.style.display = 'none';
         
-        const blogGrid = document.querySelector('.blog-grid');
-        blogGrid.innerHTML = ''; // Mevcut içeriği temizle
+        if (posts.length === 0) {
+            blogGrid.innerHTML = '<div class="no-posts">Henüz blog yazısı bulunmuyor.</div>';
+            return;
+        }
         
         posts.forEach(post => {
             const imageUrl = post.image ? `http://localhost:3002/uploads/${post.image}` : '/images/default.jpg';
@@ -45,11 +59,8 @@ async function loadBlogPosts() {
         });
     } catch (error) {
         console.error('Blog yazıları yüklenirken hata:', error);
-        document.querySelector('.blog-grid').innerHTML = `
-            <div class="error-message">
-                Blog yazıları yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.
-            </div>
-        `;
+        loadingElement.style.display = 'none';
+        errorElement.style.display = 'block';
     }
 }
 
