@@ -367,3 +367,8 @@
     background-image: none !important;
     background: none !important;
 }
+
+/* Override styles */
+.section.home-hero {
+    background-image: none !important;
+}
