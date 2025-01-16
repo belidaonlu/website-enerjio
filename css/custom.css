@@ -13,13 +13,11 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  transition: all 0.3s ease;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .scroll-to-top-btn:hover {
   background-color: #dedede;
-  transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
@@ -97,13 +95,11 @@
     border-radius: 16px;
     overflow: hidden;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
     display: flex;
     flex-direction: column;
 }
 
 .blog-post-item:hover {
-    transform: translateY(-4px);
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
 }
 
@@ -121,7 +117,6 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s ease;
 }
 
 .blog-post-item:hover .blog-post-image {
@@ -180,12 +175,10 @@
     font-weight: 500;
     border-radius: 32px;
     text-decoration: none;
-    transition: all 0.3s ease;
 }
 
 .blog-post-link:hover {
     background-color: #0052CC;
-    transform: translateY(-2px);
 }
 
 @media screen and (max-width: 991px) {
@@ -430,3 +423,32 @@
     font-size: 1.125rem;
   }
 }
+
+/* Müşterimiz olun kartları için stil */
+.card.home-pages {
+    background-color: #ffffff;
+    position: relative;
+    z-index: 1;
+}
+
+/* Video arkaplanı için stil */
+.w-background-video,
+.w-background-video > video {
+    z-index: -1 !important;
+    pointer-events: none !important;
+}
+
+/* Footer linkleri için stil */
+.footer {
+    position: relative;
+    z-index: 1;
+}
+
+.footer-nav-link {
+    position: relative;
+    z-index: 2;
+}
+
+/* Başlamaya hazır mısınız? bölümü için stil */
+
+/* Genel animasyon kontrolü */
