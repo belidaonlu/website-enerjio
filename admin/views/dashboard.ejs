@@ -188,13 +188,15 @@
             try {
                 const response = await fetch('/admin/posts', {
                     method: 'POST',
+                    credentials: 'include',
                     body: formData
                 });
                 
                 if (response.ok) {
                     window.location.reload();
                 } else {
-                    alert('Bir hata oluştu');
+                    const error = await response.json();
+                    alert(error.message || 'Bir hata oluştu');
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -212,13 +214,18 @@
             if (confirm('Bu yazıyı silmek istediğinizden emin misiniz?')) {
                 try {
                     const response = await fetch(`/admin/posts/${postId}`, {
-                        method: 'DELETE'
+                        method: 'DELETE',
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
                     });
                     
                     if (response.ok) {
                         window.location.reload();
                     } else {
-                        alert('Silme işlemi başarısız oldu');
+                        const error = await response.json();
+                        alert(error.message || 'Silme işlemi başarısız oldu');
                     }
                 } catch (error) {
                     console.error('Error:', error);

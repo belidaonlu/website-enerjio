@@ -21,14 +21,15 @@ console.log('Firebase Client Email exists:', !!process.env.FIREBASE_CLIENT_EMAIL
 console.log('Firebase Private Key exists:', !!process.env.FIREBASE_PRIVATE_KEY);
 
 const app = express();
-const port = process.env.PORT || 3001; // Port 3001'e değiştirildi
+const port = process.env.PORT || 3002; // Port 3002'e değiştirildi
 
 // CORS ayarları
 app.use(cors({
-    origin: ['http://localhost:3001', 'http://localhost:4000'],
+    origin: ['http://localhost:3001', 'http://localhost:4000', 'http://localhost:3000'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+    exposedHeaders: ['set-cookie'],
     optionsSuccessStatus: 200
 }));
 
@@ -72,14 +73,39 @@ app.use(session({
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'public/uploads/');
+        const uploadDir = path.join(__dirname, 'public/uploads');
+        // Klasör yoksa oluştur
+        if (!fs.existsSync(uploadDir)){
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
     },
     filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname);
+        // Güvenli dosya adı oluştur
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
     }
 });
 
-const upload = multer({ storage: storage });
+const fileFilter = (req, file, cb) => {
+    // Sadece resim dosyalarına izin ver
+    if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+    } else {
+        cb(new Error('Sadece resim dosyaları yüklenebilir!'), false);
+    }
+};
+
+const upload = multer({ 
+    storage: storage,
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB limit
+    }
+});
+
+// Uploads klasörünü statik olarak serve et
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // Auth middleware
 const requireAuth = async (req, res, next) => {
@@ -179,27 +205,16 @@ app.get('/admin/dashboard', requireAuth, async (req, res) => {
     }
 });
 
-// Uploads klasörünü oluştur
-const uploadDir = path.join(__dirname, 'public/uploads');
-if (!fs.existsSync(uploadDir)){
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Error handling
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).send('Something broke!');
-});
-
-// 404 handler
-app.use((req, res, next) => {
-    console.log(`404: ${req.method} ${req.url}`);
-    res.status(404).send('Not Found');
-});
-
 // Blog post routes
 app.post('/admin/posts', requireAuth, upload.single('coverImage'), async (req, res) => {
     try {
+        if (!req.body.title || !req.body.content) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Başlık ve içerik zorunludur' 
+            });
+        }
+
         const { title, content, published } = req.body;
         const coverImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
         
@@ -207,7 +222,7 @@ app.post('/admin/posts', requireAuth, upload.single('coverImage'), async (req, r
             title,
             content,
             coverImage: coverImageUrl,
-            published: published === 'on',
+            published: published === 'true' || published === 'on',
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             author: {
@@ -216,11 +231,19 @@ app.post('/admin/posts', requireAuth, upload.single('coverImage'), async (req, r
             }
         };
 
-        await postsCollection.add(post);
-        res.redirect('/admin/dashboard');
+        const docRef = await postsCollection.add(post);
+        res.status(201).json({ 
+            success: true, 
+            message: 'Post başarıyla oluşturuldu',
+            postId: docRef.id 
+        });
     } catch (error) {
         console.error('Error creating post:', error);
-        res.status(500).send('Error creating post');
+        res.status(500).json({ 
+            success: false, 
+            message: 'Post oluşturulurken bir hata oluştu',
+            error: error.message 
+        });
     }
 });
 
@@ -228,42 +251,71 @@ app.get('/admin/edit-post/:id', requireAuth, async (req, res) => {
     try {
         const postDoc = await postsCollection.doc(req.params.id).get();
         if (!postDoc.exists) {
-            return res.status(404).send('Post not found');
+            return res.status(404).send('Post bulunamadı');
         }
 
         const post = {
             id: postDoc.id,
-            ...postDoc.data()
+            ...postDoc.data(),
+            createdAt: postDoc.data().createdAt?.toDate()
         };
 
-        res.render('edit-post', { post });
+        res.render('edit-post', { 
+            post,
+            user: req.session.user
+        });
     } catch (error) {
         console.error('Error fetching post:', error);
-        res.status(500).send('Error fetching post');
+        res.status(500).send('Post getirme hatası');
     }
 });
 
 app.put('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (req, res) => {
     try {
         const { title, content, published } = req.body;
-        const coverImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-        
+        const postRef = postsCollection.doc(req.params.id);
+        const post = await postRef.get();
+
+        if (!post.exists) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Post bulunamadı' 
+            });
+        }
+
         const updateData = {
             title,
             content,
-            published: published === 'on',
+            published: published === 'true' || published === 'on',
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
 
-        if (coverImageUrl) {
-            updateData.coverImage = coverImageUrl;
+        if (req.file) {
+            // Eski resmi sil
+            const oldPost = post.data();
+            if (oldPost.coverImage) {
+                const oldImagePath = path.join(__dirname, 'public', oldPost.coverImage);
+                if (fs.existsSync(oldImagePath)) {
+                    fs.unlinkSync(oldImagePath);
+                }
+            }
+            updateData.coverImage = `/uploads/${req.file.filename}`;
         }
 
-        await postsCollection.doc(req.params.id).update(updateData);
-        res.json({ success: true });
+        await postRef.update(updateData);
+        
+        res.json({ 
+            success: true, 
+            message: 'Post başarıyla güncellendi',
+            redirectUrl: '/admin/dashboard'
+        });
     } catch (error) {
         console.error('Error updating post:', error);
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ 
+            success: false, 
+            message: 'Post güncellenirken bir hata oluştu',
+            error: error.message 
+        });
     }
 });
 
@@ -275,6 +327,52 @@ app.delete('/admin/posts/:id', requireAuth, async (req, res) => {
         console.error('Error deleting post:', error);
         res.status(500).json({ success: false, error: error.message });
     }
+});
+
+// Root URL yönlendirmesi ekleyelim
+app.get('/', (req, res) => {
+    res.redirect('/admin');
+});
+
+// Admin ana sayfası yönlendirmesi
+app.get('/admin', (req, res) => {
+    res.redirect('/admin/login');
+});
+
+// Error handling
+app.use((err, req, res, next) => {
+    console.error('Error:', err);
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({
+                success: false,
+                message: 'Dosya boyutu çok büyük (maksimum 5MB)'
+            });
+        }
+        return res.status(400).json({
+            success: false,
+            message: 'Dosya yükleme hatası'
+        });
+    }
+    res.status(500).json({
+        success: false,
+        message: 'Sunucu hatası',
+        error: err.message
+    });
+});
+
+// 404 handler
+app.use((req, res) => {
+    console.log(`404: ${req.method} ${req.url}`);
+    // API istekleri için JSON yanıtı
+    if (req.path.startsWith('/api/') || req.xhr) {
+        return res.status(404).json({
+            success: false,
+            message: 'Sayfa bulunamadı'
+        });
+    }
+    // Normal sayfa istekleri için login'e yönlendir
+    res.redirect('/admin/login');
 });
 
 // Start server
