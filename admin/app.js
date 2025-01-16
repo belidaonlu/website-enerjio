@@ -329,6 +329,40 @@ app.delete('/admin/posts/:id', requireAuth, async (req, res) => {
     }
 });
 
+// Yayınlama route'u ekleyelim
+app.post('/admin/posts/:id/publish', requireAuth, async (req, res) => {
+    try {
+        const postRef = postsCollection.doc(req.params.id);
+        const post = await postRef.get();
+
+        if (!post.exists) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Post bulunamadı' 
+            });
+        }
+
+        // Firestore'da published durumunu güncelle
+        await postRef.update({
+            published: true,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        
+        res.json({ 
+            success: true, 
+            message: 'Post başarıyla yayınlandı'
+        });
+
+    } catch (error) {
+        console.error('Error publishing post:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Post yayınlanırken bir hata oluştu',
+            error: error.message 
+        });
+    }
+});
+
 // Root URL yönlendirmesi ekleyelim
 app.get('/', (req, res) => {
     res.redirect('/admin');

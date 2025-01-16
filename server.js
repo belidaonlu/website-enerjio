@@ -135,7 +135,7 @@ app.post('/demo-form', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 4000; // Admin paneli 3000 portunu kullanıyor, biz 4000'i kullanalım
+const PORT = 4000; // Web sitesi için sabit port
 app.listen(PORT, () => {
   console.log(`Web sitesi sunucusu ${PORT} portunda çalışıyor`);
 });
