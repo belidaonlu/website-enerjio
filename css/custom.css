@@ -821,3 +821,85 @@
     padding: 24px;
   }
 }
+
+/* Hizmetler sayfası mobil düzenlemeleri */
+@media screen and (max-width: 767px) {
+  .services-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 24px;
+  }
+
+  .services-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .services-card-icon-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 16px;
+    width: 100%;
+  }
+
+  .services-card-icon-wrapper img {
+    margin: 0 auto;
+  }
+
+  .services-card-title {
+    text-align: center;
+    margin-bottom: 12px;
+    width: 100%;
+  }
+
+  .services-card-text {
+    text-align: center;
+    width: 100%;
+  }
+
+  .feature-v2-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+  }
+
+  .feature-v2-card-icon {
+    display: block;
+    margin: 0 auto 16px;
+  }
+
+  .feature-v2-card-icon img {
+    display: block;
+    margin: 0 auto;
+  }
+
+  .feature-v2-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .feature-v2-grid {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* Card feature ikonlarını mobil görünümde ortalama */
+@media screen and (max-width: 767px) {
+  .image.card-feature-v2-icon {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: auto;
+  }
+}
