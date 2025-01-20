@@ -3,20 +3,11 @@ const cors = require('cors');
 const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
 const path = require('path');
-const admin = require('firebase-admin');
-const serviceAccount = require('./firebase-service-account.json');
 
 dotenv.config();
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
-
-const db = admin.firestore();
-
 const app = express();
 
-// CORS yapılandırması
 app.use(cors({
   origin: ['http://localhost:4000', 'http://127.0.0.1:4000', 'http://localhost:3002'],
   methods: ['GET', 'POST', 'OPTIONS'],
@@ -24,7 +15,6 @@ app.use(cors({
   credentials: true
 }));
 
-// Middleware'ler
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('.', { 
@@ -34,7 +24,6 @@ app.use(express.static(path.join(__dirname)));
 
 console.log('Statik dosya dizini yapılandırıldı');
 
-// E-posta yapılandırması
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -46,15 +35,12 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Test e-postası gönderimi
 transporter.verify((error, success) => {
   if (error) {
     console.error('E-posta yapılandırma hatası:', error);
     console.error('Gmail kullanıcı adı:', process.env.GMAIL_USER);
-    // Şifreyi güvenlik nedeniyle loglamıyoruz
   } else {
     console.log('E-posta sunucusu hazır');
-    // Test e-postası gönder
     const testMailOptions = {
       from: process.env.GMAIL_USER,
       to: process.env.GMAIL_USER,
@@ -85,40 +71,6 @@ app.get('/blog-post', (req, res) => {
   res.sendFile(path.join(__dirname, 'blog-post.html'));
 });
 
-app.get('/public/posts', async (req, res) => {
-  try {
-    const postsRef = db.collection('posts');
-    const snapshot = await postsRef.orderBy('createdAt', 'desc').get();
-    
-    const posts = [];
-    snapshot.forEach(doc => {
-      posts.push({ id: doc.id, ...doc.data() });
-    });
-    
-    res.json(posts);
-  } catch (error) {
-    console.error('Blog yazıları getirme hatası:', error);
-    res.status(500).json({ error: 'Blog yazıları yüklenirken bir hata oluştu' });
-  }
-});
-
-app.get('/public/posts/:id', async (req, res) => {
-  try {
-    const postId = req.params.id;
-    const postDoc = await db.collection('posts').doc(postId).get();
-    
-    if (!postDoc.exists) {
-      return res.status(404).json({ error: 'Blog yazısı bulunamadı' });
-    }
-    
-    const post = { id: postDoc.id, ...postDoc.data() };
-    res.json(post);
-  } catch (error) {
-    console.error('Blog yazısı getirme hatası:', error);
-    res.status(500).json({ error: 'Blog yazısı yüklenirken bir hata oluştu' });
-  }
-});
-
 app.post('/demo-form', async (req, res) => {
   console.log('Demo form isteği alındı');
   console.log('Form verileri:', req.body);
@@ -126,7 +78,6 @@ app.post('/demo-form', async (req, res) => {
   try {
     const { 'İ-im-Soyisim': name, 'E-posta': email, Telefon: phone, irket: company, 'Web-sitesi': website, Pozisyon: position } = req.body;
 
-    // Form verilerinin kontrolü
     if (!name || !email || !phone) {
       console.error('Eksik form verileri:', { name, email, phone });
       return res.status(400).json({ 
@@ -149,7 +100,6 @@ app.post('/demo-form', async (req, res) => {
       `
     };
 
-    // Promise'e dönüştürülmüş sendMail
     const info = await new Promise((resolve, reject) => {
       transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
@@ -175,7 +125,7 @@ app.post('/demo-form', async (req, res) => {
   }
 });
 
-const PORT = 4000; // Web sitesi için sabit port
+const PORT = 4000; 
 app.listen(PORT, () => {
   console.log(`Web sitesi sunucusu ${PORT} portunda çalışıyor`);
 });

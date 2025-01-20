@@ -322,6 +322,75 @@
   }
 }
 
+/* Mobil menü düzenlemeleri */
+@media screen and (max-width: 767px) {
+  /* Hamburger menü görünürlüğü */
+  .w-nav-button {
+    display: block !important;
+    padding: 12px !important;
+  }
+
+  /* Menü icon'u */
+  .w-nav-button .w-icon-nav-menu {
+    display: block !important;
+    font-size: 24px !important;
+  }
+
+  /* Header düzeni */
+  .header-wrapper {
+    justify-content: space-between !important;
+  }
+
+  /* Mobil menü */
+  .nav-menu {
+    display: none !important;
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    background-color: #fff !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
+    padding: 20px !important;
+    z-index: 999 !important;
+  }
+
+  /* Menü açıkken */
+  .nav-menu.w--open {
+    display: block !important;
+  }
+
+  .header-navigation {
+    flex-direction: column !important;
+    gap: 15px !important;
+  }
+
+  /* Login ve demo butonları */
+  .split-content.header-left {
+    display: flex !important;
+    gap: 10px !important;
+    align-items: center !important;
+  }
+
+  /* Sayfa içeriğinin menüden etkilenmemesi için */
+  .page-wrapper {
+    background-color: #fff !important;
+  }
+
+  /* Overlay'i tamamen kaldır */
+  .w-nav-overlay {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+}
+
+/* Sayfa içeriğinin overlay'den etkilenmemesi için */
+.page-wrapper {
+  background-color: #fff !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
 /* Müşterimiz olun kartları için stil */
 .card.home-pages {
     background-color: #ffffff;
@@ -371,4 +440,195 @@
 /* Override styles */
 .section.home-hero {
     background-image: none !important;
+}
+
+/* Mobil düzenlemeler */
+@media screen and (max-width: 767px) {
+  /* Neden enerj.io? bölümü için düzenleme */
+  .home-perks-content-bottom {
+    margin-top: 40px;  /* Alt içerik ile üst içerik arasındaki boşluğu artır */
+  }
+
+  /* Demo bölümü ile kartlar arasındaki çakışmayı önle */
+  .section.home-perks {
+    margin-bottom: 40px;  /* Alt bölüm ile arasında boşluk bırak */
+  }
+}
+
+/* Sadece en küçük mobil ekranlar için düzenlemeler */
+@media screen and (max-width: 479px) {
+  /* Neden enerj.io? bölümü için düzenleme */
+  .home-perks-content-bottom {
+    margin-top: 30px;  /* Alt içerik ile üst içerik arasında minimum boşluk */
+  }
+
+  /* Demo bölümü ile kartlar arasındaki çakışmayı önle */
+  .section.home-perks {
+    margin-bottom: 30px;  /* Alt bölüm ile minimum boşluk */
+  }
+}
+
+/* Accordion kartları için düzenlemeler */
+@media screen and (max-width: 479px) {
+  .faq-accordion {
+    margin-bottom: 20px;  /* Kartlar arası boşluk */
+  }
+  
+  .faq-accordion-content {
+    max-height: none;  /* İçerik yüksekliğini sınırlama */
+    overflow: visible;  /* Taşan içeriği göster */
+  }
+
+  .accordion-item {
+    margin-bottom: 15px;  /* Her öğe arasında boşluk */
+  }
+
+  /* Kartların açıldığında diğer bölümlere taşmasını önle */
+  .section.home-perks {
+    overflow: visible;
+    position: relative;
+    z-index: 2;  /* Üst katmanda göster */
+    padding-bottom: 50px;  /* Alt bölüm için ekstra boşluk */
+  }
+
+  /* Alt bölümü kartlardan uzaklaştır */
+  .section.demo-section {
+    position: relative;
+    z-index: 1;
+    margin-top: 30px;  /* Üstteki bölümle arasında boşluk */
+  }
+}
+
+/* Mobil görünüm düzenlemeleri */
+@media screen and (max-width: 479px) {
+  /* Her section için temel düzen */
+  .section {
+    position: relative;
+    width: 100%;
+    clear: both;
+    float: none;
+  }
+
+  /* Misyonumuz section'ı */
+  .section.home-perks {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 60px;
+    padding-bottom: 60px;
+    background-color: #fff; /* Arkayı beyaz yap */
+  }
+
+  /* Accordion kartları düzeni */
+  .faq-accordion {
+    position: relative;
+    z-index: 1;
+  }
+
+  .faq-accordion-content {
+    position: relative;
+    z-index: 2;
+    background-color: #fff;
+    padding: 15px;
+    margin-top: -5px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    border-radius: 0 0 8px 8px;
+  }
+
+  /* Alt section için düzen */
+  .section.demo-section {
+    position: relative;
+    z-index: 0;
+    margin-top: 0;
+    padding-top: 60px;
+    background-color: #fff;
+  }
+}
+
+/* Mobil ekranlar için container düzenlemeleri */
+@media screen and (max-width: 767px) {
+  /* Tüm container'lar için temel ayarlar */
+  .container-default {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+
+  /* Neden enerj.io bölümü için özel container */
+  .section.home-perks .container-default {
+    min-height: 800px !important;
+  }
+
+  /* Diğer bölümler için container */
+  .section.demo-section .container-default {
+    min-height: 400px !important;
+  }
+}
+
+/* En küçük mobil ekranlar için ek düzenlemeler */
+@media screen and (max-width: 479px) {
+  .container-default {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Neden enerj.io bölümü için özel container */
+  .section.home-perks .container-default {
+    min-height: 1000px !important;
+  }
+
+  /* Diğer bölümler için container */
+  .section.demo-section .container-default {
+    min-height: 500px !important;
+  }
+
+  /* Section'lar arası çakışmayı önle */
+  .section {
+    overflow: visible !important;
+  }
+
+  /* İçerik taşmalarını önle */
+  .content-wrapper {
+    height: auto !important;
+    overflow: visible !important;
+  }
+}
+
+/* Footer düzenlemeleri */
+@media screen and (max-width: 479px) {
+  .footer {
+    padding: 30px 20px !important;
+    width: 100% !important;
+  }
+
+  .footer .container-default {
+    min-height: auto !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .footer-content-top {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 20px !important;
+  }
+
+  .footer-content-bottom {
+    margin-top: 20px !important;
+    padding-top: 20px !important;
+    border-top: 1px solid rgba(0,0,0,0.1) !important;
+  }
+
+  .footer-menu-content {
+    flex-direction: column !important;
+    gap: 15px !important;
+    width: 100% !important;
+  }
+
+  .footer-menu-list {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
 }
