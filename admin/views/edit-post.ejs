@@ -41,8 +41,8 @@
                                 <label for="coverImage" class="block text-sm font-medium text-gray-700">
                                     Kapak Görseli
                                 </label>
-                                <% if (post.image) { %>
-                                    <img src="<%= post.image %>" alt="Mevcut görsel" class="mt-2 h-32 w-auto">
+                                <% if (post.coverImage) { %>
+                                    <img src="<%= post.coverImage %>" alt="Mevcut görsel" class="mt-2 h-32 w-auto">
                                 <% } %>
                                 <input type="file" name="coverImage" id="coverImage" accept="image/*"
                                     class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
