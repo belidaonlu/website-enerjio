@@ -37,31 +37,47 @@ function displayBlogPosts(posts) {
         return;
     }
 
-    const postsHTML = posts.map(post => `
-        <article class="blog-post">
-            ${post.coverImage ? `
+    const postsHTML = posts.map(post => {
+        // Resim URL'ini hazırla
+        let imageUrl = '/images/default-blog-image.jpg';
+        if (post.coverImage) {
+            imageUrl = post.coverImage.startsWith('/') ? 
+                `http://localhost:3002${post.coverImage}` : 
+                post.coverImage;
+        }
+
+        return `
+            <article class="blog-post">
                 <div class="post-image">
-                    <img src="${post.coverImage}" alt="${post.title}" class="img-fluid">
+                    <img src="${imageUrl}" alt="${post.title}" class="img-fluid">
                 </div>
-            ` : ''}
-            <div class="post-content">
-                <h2>${post.title}</h2>
-                <div class="post-meta">
-                    <span class="date">
-                        ${post.createdAt ? new Date(post.createdAt).toLocaleDateString('tr-TR', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                        }) : 'Tarih belirtilmemiş'}
-                    </span>
-                    ${post.author ? `<span class="author">Yazar: ${post.author.name}</span>` : ''}
+                <div class="post-content">
+                    <h2>${post.title}</h2>
+                    <div class="post-meta">
+                        <span class="date">
+                            ${post.createdAt ? new Date(post.createdAt).toLocaleDateString('tr-TR', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                            }) : 'Tarih belirtilmemiş'}
+                        </span>
+                        ${post.author && post.author.name ? 
+                            `<span class="author">Yazar: ${post.author.name}</span>` : 
+                            ''}
+                    </div>
+                    <div class="post-text">
+                        ${post.content.length > 300 ? post.content.substring(0, 300) + '...' : post.content}
+                    </div>
+                    <a href="/blog-post.html?id=${post._id}" class="button-primary blog-button w-inline-block">
+                        <div class="button-primary-text-wrapper">
+                            <div>Devamını Oku</div>
+                            <div class="button-primary-arrow small"></div>
+                        </div>
+                    </a>
                 </div>
-                <div class="post-text">
-                    ${post.content}
-                </div>
-            </div>
-        </article>
-    `).join('');
+            </article>
+        `;
+    }).join('');
 
     container.innerHTML = postsHTML;
 }

@@ -663,9 +663,10 @@ app.get('/public/posts/:id', async (req, res) => {
             _id: doc.id,
             title: data.title || '',
             content: data.content || '',
-            image: data.image || '',
+            coverImage: data.coverImage || '',
             createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
-            published: data.published || false
+            published: data.published || false,
+            author: data.author || null
         });
     } catch (error) {
         console.error('Blog yazısı alınırken hata:', error);

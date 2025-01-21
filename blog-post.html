@@ -205,17 +205,43 @@
         }
         
         const post = await response.json();
-        
+        console.log('Blog yazısı detayı:', post); // Debug için
+
         // Blog yazısı içeriğini doldur
         document.querySelector('.blog-post-title').textContent = post.title;
-        document.querySelector('.post-date').textContent = new Date(post.createdAt).toLocaleDateString('tr-TR');
-        document.querySelector('.post-author').textContent = post.author;
         
-        const imageUrl = post.image ? `http://localhost:3002/uploads/${post.image}` : '/images/default.jpg';
+        // Tarih formatını düzelt
+        const date = post.createdAt ? new Date(post.createdAt) : new Date();
+        document.querySelector('.post-date').textContent = date.toLocaleDateString('tr-TR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        
+        // Yazar bilgisini düzelt
+        document.querySelector('.post-author').textContent = post.author && post.author.name ? 
+            `Yazar: ${post.author.name}` : '';
+        
+        // Resim işleme
         const imageElement = document.querySelector('.blog-post-image img');
-        imageElement.src = imageUrl;
+        const imageContainer = document.querySelector('.blog-post-image');
+        
+        if (post.coverImage && post.coverImage.startsWith('/')) {
+            // Eğer coverImage bir yerel yol ise (örn: /uploads/...)
+            imageElement.src = `http://localhost:3002${post.coverImage}`;
+            imageContainer.style.display = 'block';
+        } else if (post.coverImage) {
+            // Eğer coverImage tam URL ise
+            imageElement.src = post.coverImage;
+            imageContainer.style.display = 'block';
+        } else {
+            // Resim yoksa default resmi göster
+            imageElement.src = '/images/default-blog-image.jpg';
+            imageContainer.style.display = 'block';
+        }
         imageElement.alt = post.title;
         
+        // İçerik
         document.querySelector('.blog-post-content').innerHTML = post.content;
         
         // Yükleme tamamlandığında
@@ -229,6 +255,7 @@
         console.error('Blog yazısı yüklenirken hata:', error);
         loadingElement.style.display = 'none';
         errorElement.style.display = 'block';
+        errorElement.textContent = `Blog yazısı yüklenirken bir hata oluştu: ${error.message}`;
       }
     }
 
