@@ -60,10 +60,6 @@ function displayBlogPosts(posts) {
                                 month: 'long',
                                 day: 'numeric'
                             }) : 'Tarih belirtilmemiş'}
-                        </span>
-                        ${post.author && post.author.name ? 
-                            `<span class="author">Yazar: ${post.author.name}</span>` : 
-                            ''}
                     </div>
                     <div class="post-text">
                         ${post.content.length > 300 ? post.content.substring(0, 300) + '...' : post.content}

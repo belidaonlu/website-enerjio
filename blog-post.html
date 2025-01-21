@@ -72,19 +72,20 @@
     <div class="blog-post-container">
         <div class="loading">Yükleniyor...</div>
         <div class="error-message" style="display: none;">Blog yazısı yüklenirken bir hata oluştu.</div>
-        <article class="blog-post" style="display: none;">
-            <header class="blog-post-header">
-                <h1 class="blog-post-title"></h1>
-                <div class="blog-post-meta">
-                    <span class="post-date"></span>
-                    <span class="post-author"></span>
-                </div>
-            </header>
-            <div class="blog-post-image">
-                <img src="" alt="">
+        <div class="blog-post">
+          <div class="container-small-800px">
+            <h1 class="blog-post-title"></h1>
+            <div class="blog-post-meta">
+              <span class="post-date"></span>
             </div>
-            <div class="blog-post-content"></div>
-        </article>
+            <div class="blog-post-content">
+              <div class="blog-post-image">
+                <img src="" alt="">
+              </div>
+              <div class="blog-post-text"></div>
+            </div>
+          </div>
+        </div>
     </div>
 
     <a href="#" class="back-to-top w-inline-block">
@@ -218,9 +219,6 @@
             day: 'numeric'
         });
         
-        // Yazar bilgisini düzelt
-        document.querySelector('.post-author').textContent = post.author && post.author.name ? 
-            `Yazar: ${post.author.name}` : '';
         
         // Resim işleme
         const imageElement = document.querySelector('.blog-post-image img');
@@ -242,7 +240,7 @@
         imageElement.alt = post.title;
         
         // İçerik
-        document.querySelector('.blog-post-content').innerHTML = post.content;
+        document.querySelector('.blog-post-text').innerHTML = post.content;
         
         // Yükleme tamamlandığında
         loadingElement.style.display = 'none';
