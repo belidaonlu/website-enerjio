@@ -71,25 +71,15 @@
     </div>
 
     <!-- Firebase SDK'ları -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
     <script>
         // Firebase yapılandırması
-        const firebaseConfig = {
-            apiKey: "AIzaSyB84ol0Fu-nJtU8I5S8dajMFVjhgdyFQ8Y",
-            authDomain: "enerjio-website.firebaseapp.com",
-            projectId: "enerjio-website",
-            storageBucket: "enerjio-website.firebasestorage.app",
-            messagingSenderId: "71871281855",
-            appId: "1:71871281855:web:6d198285f5d37495e1a40a",
-            measurementId: "G-LR8RX0VYF3"
-        };
-
+        const firebaseConfig = JSON.parse('<%- JSON.stringify(firebaseConfig) %>');
+        
         // Firebase'i başlat
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
+        firebase.initializeApp(firebaseConfig);
 
         // Google provider
         const provider = new firebase.auth.GoogleAuthProvider();
@@ -98,45 +88,32 @@
             prompt: 'select_account'
         });
 
+        // Sayfa yüklendiğinde çıkış durumunu kontrol et
+        window.addEventListener('load', async () => {
+            const isLogoutPage = new URLSearchParams(window.location.search).get('logout') === 'true';
+            if (isLogoutPage) {
+                await firebase.auth().signOut();
+                // URL'den logout parametresini temizle
+                window.history.replaceState({}, document.title, '/admin/login');
+            }
+        });
+
         // Google ile giriş işlemi
         document.getElementById('googleLogin').addEventListener('click', async () => {
             try {
-                // Popup açılmadan önce loading göstergesi ekleyelim
                 const button = document.getElementById('googleLogin');
                 button.disabled = true;
                 button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Giriş yapılıyor...';
 
-                // Popup ile giriş yapalım
+                // Popup ile giriş yap
                 const result = await firebase.auth().signInWithPopup(provider);
                 
-                // Başarılı girişten sonra popup'ı hemen kapatalım
                 if (result.user) {
-                    window.close();
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                showError('Giriş işlemi sırasında bir hata oluştu');
-            } finally {
-                // Hata olsa da olmasa da butonu eski haline getirelim
-                const button = document.getElementById('googleLogin');
-                button.disabled = false;
-                button.innerHTML = '<img src="https://www.google.com/favicon.ico" alt="Google"> Google ile Giriş Yap';
-            }
-        });
-
-        // Auth state değişikliklerini dinle
-        firebase.auth().onAuthStateChanged(async function(user) {
-            // Çıkış yapıldığını kontrol et
-            const isLogoutPage = new URLSearchParams(window.location.search).get('logout') === 'true';
-            
-            if (user && !isLogoutPage) {
-                try {
-                    const idToken = await user.getIdToken();
+                    const idToken = await result.user.getIdToken();
                     const response = await fetch('/admin/login', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
+                            'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({ idToken: idToken }),
                         credentials: 'include'
@@ -146,18 +123,19 @@
                     if (data.success) {
                         window.location.href = '/admin/dashboard';
                     } else {
-                        await firebase.auth().signOut();
-                        showError(data.message || 'Giriş başarısız');
+                        throw new Error(data.message || 'Giriş başarısız');
                     }
-                } catch (error) {
-                    console.error('Login error:', error);
-                    showError('Giriş işlemi sırasında bir hata oluştu');
-                    await firebase.auth().signOut();
                 }
+            } catch (error) {
+                console.error('Login error:', error);
+                showError('Giriş işlemi sırasında bir hata oluştu');
+                
+                const button = document.getElementById('googleLogin');
+                button.disabled = false;
+                button.innerHTML = '<img src="https://www.google.com/favicon.ico" alt="Google"> Google ile Giriş Yap';
             }
         });
 
-        // Hata mesajını göster
         function showError(message) {
             const errorDiv = document.getElementById('error-message');
             if (errorDiv) {

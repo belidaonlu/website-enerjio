@@ -1,18 +1,12 @@
-const { initializeApp, cert } = require('firebase-admin/app');
-const { getAuth } = require('firebase-admin/auth');
-const { getFirestore } = require('firebase-admin/firestore');
-
-const serviceAccount = {
-  "project_id": process.env.FIREBASE_PROJECT_ID,
-  "client_email": process.env.FIREBASE_CLIENT_EMAIL,
-  "private_key": process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+// Client tarafı Firebase yapılandırması
+const firebaseConfig = {
+    apiKey: "AIzaSyB84ol0Fu-nJtU8I5S8dajMFVjhgdyFQ8Y",
+    authDomain: "enerjio-website.firebaseapp.com",
+    projectId: "enerjio-website",
+    storageBucket: "enerjio-website.firebasestorage.app",
+    messagingSenderId: "71871281855",
+    appId: "1:71871281855:web:6d198285f5d37495e1a40a",
+    measurementId: "G-LR8RX0VYF3"
 };
 
-const admin = initializeApp({
-  credential: cert(serviceAccount)
-});
-
-const auth = getAuth(admin);
-const db = getFirestore(admin);
-
-module.exports = { auth, db };
+module.exports = firebaseConfig;
