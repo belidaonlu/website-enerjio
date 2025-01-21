@@ -71,6 +71,14 @@ app.use(session({
     name: 'sessionId'
 }));
 
+// POST isteklerini kabul et
+app.use((req, res, next) => {
+    if (req.method === 'POST') {
+        return next();
+    }
+    next();
+});
+
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -327,6 +335,44 @@ app.delete('/admin/posts/:id', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('Error deleting post:', error);
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Yayın durumunu değiştirme route'u
+app.post('/admin/posts/:id/toggle', requireAuth, async (req, res) => {
+    try {
+        console.log('Toggle route çağrıldı, post ID:', req.params.id);
+        
+        const postRef = postsCollection.doc(req.params.id);
+        const post = await postRef.get();
+
+        if (!post.exists) {
+            console.log('Post bulunamadı');
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Post bulunamadı' 
+            });
+        }
+
+        const currentPublished = post.data().published;
+        console.log('Mevcut yayın durumu:', currentPublished);
+
+        // Mevcut published durumunun tersini ayarla
+        await postRef.update({
+            published: !currentPublished,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log('Yeni yayın durumu:', !currentPublished);
+        res.redirect('/admin/dashboard');
+
+    } catch (error) {
+        console.error('Toggle hatası:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Post durumu değiştirilirken bir hata oluştu',
+            error: error.message 
+        });
     }
 });
 
