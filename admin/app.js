@@ -8,6 +8,7 @@ const admin = require('firebase-admin');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 
 // Debug için log
 console.log('Starting application...');
@@ -40,12 +41,14 @@ if (!admin.apps.length) {
             projectId: process.env.FIREBASE_PROJECT_ID,
             clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
             privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-        })
+        }),
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET
     });
 }
 
-// Firestore referansı
+// Firestore ve Storage referansları
 const db = admin.firestore();
+const bucket = admin.storage().bucket();
 const postsCollection = db.collection('posts');
 
 // Express middleware
@@ -101,7 +104,7 @@ const fileFilter = (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
         cb(null, true);
     } else {
-        cb(new Error('Sadece resim dosyaları yüklenebilir!'), false);
+        cb(new Error('Sadece resim dosyaları yüklenebilir! (jpg, png, gif, vb.)'), false);
     }
 };
 
@@ -109,8 +112,21 @@ const upload = multer({
     storage: storage,
     fileFilter: fileFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024 // 5MB limit
+        fileSize: 10 * 1024 * 1024 // 10MB limit
     }
+});
+
+// Multer hata yakalama middleware'i
+app.use((err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({
+                success: false,
+                message: 'Dosya boyutu çok büyük! Maksimum 10MB yükleyebilirsiniz.'
+            });
+        }
+    }
+    next(err);
 });
 
 // Uploads klasörünü statik olarak serve et
@@ -281,7 +297,7 @@ app.get('/admin/edit-post/:id', requireAuth, async (req, res) => {
 
 app.put('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (req, res) => {
     try {
-        const { title, content, published } = req.body;
+        const { title, content } = req.body;
         const postRef = postsCollection.doc(req.params.id);
         const post = await postRef.get();
 
@@ -295,20 +311,51 @@ app.put('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (req
         const updateData = {
             title,
             content,
-            published: published === 'true' || published === 'on',
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
 
         if (req.file) {
-            // Eski resmi sil
-            const oldPost = post.data();
-            if (oldPost.coverImage) {
-                const oldImagePath = path.join(__dirname, 'public', oldPost.coverImage);
-                if (fs.existsSync(oldImagePath)) {
-                    fs.unlinkSync(oldImagePath);
+            try {
+                // Eski resmi Firebase Storage'dan sil
+                const oldPost = post.data();
+                if (oldPost.coverImage) {
+                    try {
+                        const oldImageName = oldPost.coverImage.split('/').pop();
+                        await bucket.file(`blog-images/${oldImageName}`).delete();
+                    } catch (err) {
+                        console.error('Eski resim silinirken hata:', err);
+                    }
                 }
+
+                // Yeni resmi Firebase Storage'a yükle
+                const uniqueFileName = `${uuidv4()}${path.extname(req.file.originalname)}`;
+                const filePath = req.file.path;
+                
+                await bucket.upload(filePath, {
+                    destination: `blog-images/${uniqueFileName}`,
+                    metadata: {
+                        contentType: req.file.mimetype,
+                    }
+                });
+
+                // Geçici dosyayı sil
+                fs.unlinkSync(filePath);
+
+                // Public URL al
+                const [url] = await bucket.file(`blog-images/${uniqueFileName}`).getSignedUrl({
+                    action: 'read',
+                    expires: '01-01-2100'
+                });
+
+                updateData.coverImage = url;
+            } catch (error) {
+                console.error('Görsel yükleme hatası:', error);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Görsel yüklenirken bir hata oluştu',
+                    error: error.message
+                });
             }
-            updateData.coverImage = `/uploads/${req.file.filename}`;
         }
 
         await postRef.update(updateData);
@@ -514,7 +561,7 @@ app.use((err, req, res, next) => {
         if (err.code === 'LIMIT_FILE_SIZE') {
             return res.status(400).json({
                 success: false,
-                message: 'Dosya boyutu çok büyük (maksimum 5MB)'
+                message: 'Dosya boyutu çok büyük (maksimum 10MB)'
             });
         }
         return res.status(400).json({
