@@ -297,7 +297,13 @@ app.get('/admin/edit-post/:id', requireAuth, async (req, res) => {
 
 app.put('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (req, res) => {
     try {
+        console.log('PUT isteği alındı');
+        console.log('Body:', req.body);
+        
         const { title, content } = req.body;
+        console.log('Title:', title);
+        console.log('Content:', content ? content.substring(0, 100) + '...' : 'Boş');
+        
         const postRef = postsCollection.doc(req.params.id);
         const post = await postRef.get();
 
@@ -313,6 +319,12 @@ app.put('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (req
             content,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
+
+        console.log('Update data:', {
+            title: updateData.title,
+            contentLength: updateData.content ? updateData.content.length : 0,
+            hasContent: !!updateData.content
+        });
 
         if (req.file) {
             try {
@@ -358,7 +370,9 @@ app.put('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (req
             }
         }
 
+        console.log('Firestore update başlıyor...');
         await postRef.update(updateData);
+        console.log('Firestore update tamamlandı');
         
         res.json({ 
             success: true, 

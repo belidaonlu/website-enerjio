@@ -189,7 +189,10 @@
             }
 
             const content = editor.getContent();
+            console.log('TinyMCE içeriği:', content.substring(0, 100) + '...');
+            
             const contentSize = new Blob([content]).size;
+            console.log('İçerik boyutu:', formatBytes(contentSize));
 
             // İçerik boyutu kontrolü
             if (contentSize > FIREBASE_LIMIT) {
@@ -205,9 +208,23 @@
 
             const form = document.getElementById('editPostForm');
             const formData = new FormData(form);
+            
+            // TinyMCE içeriğini ekle
+            formData.delete('content'); // Önce varsa eski içeriği sil
             formData.append('content', content);
+            
+            // FormData içeriğini kontrol et
+            console.log('FormData içeriği:');
+            for (let [key, value] of formData.entries()) {
+                if (key === 'content') {
+                    console.log('content:', value.substring(0, 100) + '...');
+                } else {
+                    console.log(key + ':', value);
+                }
+            }
 
             try {
+                console.log('PUT isteği gönderiliyor...');
                 const response = await fetch(`/admin/posts/<%= post.id %>`, {
                     method: 'PUT',
                     credentials: 'include',
@@ -215,6 +232,7 @@
                 });
                 
                 const result = await response.json();
+                console.log('Sunucu yanıtı:', result);
                 
                 if (response.ok) {
                     window.location.href = '/admin/dashboard';
