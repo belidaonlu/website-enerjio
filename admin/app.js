@@ -9,6 +9,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const methodOverride = require('method-override');
 
 // Debug için log
 console.log('Starting application...');
@@ -80,6 +81,9 @@ app.use(session({
     name: 'sessionId'
 }));
 
+// Method override middleware ekleyin (en üstte diğer middleware'lerden önce)
+app.use(methodOverride('_method'));
+
 // POST isteklerini kabul et
 app.use((req, res, next) => {
     if (req.method === 'POST') {
@@ -88,37 +92,19 @@ app.use((req, res, next) => {
     next();
 });
 
-// Multer configuration for file uploads
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadDir = path.join(__dirname, 'public/uploads');
-        // Klasör yoksa oluştur
-        if (!fs.existsSync(uploadDir)){
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        // Güvenli dosya adı oluştur
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-});
-
-const fileFilter = (req, file, cb) => {
-    // Sadece resim dosyalarına izin ver
-    if (file.mimetype.startsWith('image/')) {
-        cb(null, true);
-    } else {
-        cb(new Error('Sadece resim dosyaları yüklenebilir! (jpg, png, gif, vb.)'), false);
-    }
-};
-
-const upload = multer({ 
+// Multer yapılandırması
+const storage = multer.memoryStorage(); // Dosyaları bellekte tutacağız
+const upload = multer({
     storage: storage,
-    fileFilter: fileFilter,
     limits: {
         fileSize: 10 * 1024 * 1024 // 10MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Sadece görsel dosyalar yüklenebilir.'));
+        }
     }
 });
 
@@ -209,9 +195,20 @@ app.post('/admin/login', async (req, res) => {
     }
 });
 
-app.get('/admin/logout', (req, res) => {
-    req.session.destroy();
-    res.redirect('/admin/login');
+app.post('/admin/logout', async (req, res) => {
+    try {
+        // Session'ı temizle
+        req.session.destroy();
+        
+        // Login sayfasına yönlendir ve logout parametresi ekle
+        res.redirect('/admin/login?logout=true');
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Çıkış yapılırken bir hata oluştu' 
+        });
+    }
 });
 
 app.get('/admin/dashboard', requireAuth, async (req, res) => {
@@ -303,143 +300,92 @@ app.get('/admin/edit-post/:id', requireAuth, async (req, res) => {
 
 app.put('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (req, res) => {
     try {
-        console.log('PUT isteği alındı');
-        console.log('Body:', req.body);
-        
-        const { title, content } = req.body;
-        console.log('Title:', title);
-        console.log('Content:', content ? content.substring(0, 100) + '...' : 'Boş');
-        
-        const postRef = postsCollection.doc(req.params.id);
-        const post = await postRef.get();
-
-        if (!post.exists) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Post bulunamadı' 
-            });
-        }
-
-        const updateData = {
-            title,
-            content,
+        const postData = {
+            title: req.body.title,
+            content: req.body.content,
+            published: false, // Her güncelleme sonrası taslak olarak ayarla
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
 
-        console.log('Update data:', {
-            title: updateData.title,
-            contentLength: updateData.content ? updateData.content.length : 0,
-            hasContent: !!updateData.content
-        });
-
         if (req.file) {
-            try {
-                // Eski resmi Firebase Storage'dan sil
-                const oldPost = post.data();
-                if (oldPost.coverImage) {
-                    try {
-                        const oldImageName = oldPost.coverImage.split('/').pop();
-                        await bucket.file(`blog-images/${oldImageName}`).delete();
-                    } catch (err) {
-                        console.error('Eski resim silinirken hata:', err);
-                    }
-                }
-
-                // Yeni resmi Firebase Storage'a yükle
-                const uniqueFileName = `${uuidv4()}${path.extname(req.file.originalname)}`;
-                const filePath = req.file.path;
-                
-                await bucket.upload(filePath, {
-                    destination: `blog-images/${uniqueFileName}`,
+            // Eğer yeni bir görsel yüklendiyse
+            const bucket = admin.storage().bucket();
+            const blob = bucket.file(req.file.filename);
+            
+            await new Promise((resolve, reject) => {
+                const blobStream = blob.createWriteStream({
                     metadata: {
                         contentType: req.file.mimetype,
-                    }
+                    },
                 });
 
-                // Geçici dosyayı sil
-                fs.unlinkSync(filePath);
+                blobStream.on('error', reject);
+                blobStream.on('finish', resolve);
+                blobStream.end(req.file.buffer);
+            });
 
-                // Public URL al
-                const [url] = await bucket.file(`blog-images/${uniqueFileName}`).getSignedUrl({
-                    action: 'read',
-                    expires: '01-01-2100'
-                });
+            const [url] = await blob.getSignedUrl({
+                action: 'read',
+                expires: '03-01-2500',
+            });
 
-                updateData.coverImage = url;
-            } catch (error) {
-                console.error('Görsel yükleme hatası:', error);
-                return res.status(500).json({
-                    success: false,
-                    message: 'Görsel yüklenirken bir hata oluştu',
-                    error: error.message
-                });
-            }
+            postData.coverImage = url;
         }
 
-        console.log('Firestore update başlıyor...');
-        await postRef.update(updateData);
-        console.log('Firestore update tamamlandı');
-        
-        res.json({ 
-            success: true, 
-            message: 'Post başarıyla güncellendi',
-            redirectUrl: '/admin/dashboard'
-        });
+        await postsCollection.doc(req.params.id).update(postData);
+        res.json({ success: true });
     } catch (error) {
-        console.error('Error updating post:', error);
+        console.error('Güncelleme hatası:', error);
         res.status(500).json({ 
-            success: false, 
-            message: 'Post güncellenirken bir hata oluştu',
-            error: error.message 
+            error: 'Güncelleme başarısız oldu', 
+            details: error.message 
         });
     }
 });
 
+// Silme route'unu güncelleyin
 app.delete('/admin/posts/:id', requireAuth, async (req, res) => {
     try {
-        await postsCollection.doc(req.params.id).delete();
-        res.json({ success: true });
+        const postRef = postsCollection.doc(req.params.id);
+        const post = await postRef.get();
+        
+        if (!post.exists) {
+            return res.status(404).send('Post bulunamadı');
+        }
+
+        // Eğer post'un bir görseli varsa, onu da sil
+        if (post.data().coverImage) {
+            try {
+                const imageUrl = new URL(post.data().coverImage);
+                const imagePath = imageUrl.pathname.split('/').pop();
+                await bucket.file(imagePath).delete();
+            } catch (error) {
+                console.error('Görsel silinirken hata:', error);
+            }
+        }
+
+        await postRef.delete();
+        res.redirect('/admin/dashboard');
     } catch (error) {
-        console.error('Error deleting post:', error);
-        res.status(500).json({ success: false, error: error.message });
+        console.error('Silme hatası:', error);
+        res.status(500).send('Silme işlemi başarısız oldu');
     }
 });
 
 // Yayın durumunu değiştirme route'u
 app.post('/admin/posts/:id/toggle', requireAuth, async (req, res) => {
     try {
-        console.log('Toggle route çağrıldı, post ID:', req.params.id);
+        const doc = await postsCollection.doc(req.params.id).get();
+        const currentStatus = doc.data().published;
         
-        const postRef = postsCollection.doc(req.params.id);
-        const post = await postRef.get();
-
-        if (!post.exists) {
-            console.log('Post bulunamadı');
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Post bulunamadı' 
-            });
-        }
-
-        const currentPublished = post.data().published;
-        console.log('Mevcut yayın durumu:', currentPublished);
-
-        // Mevcut published durumunun tersini ayarla
-        await postRef.update({
-            published: !currentPublished,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        await postsCollection.doc(req.params.id).update({
+            published: !currentStatus
         });
         
-        console.log('Yeni yayın durumu:', !currentPublished);
         res.redirect('/admin/dashboard');
-
     } catch (error) {
-        console.error('Toggle hatası:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Post durumu değiştirilirken bir hata oluştu',
-            error: error.message 
-        });
+        console.error('Durum değiştirme hatası:', error);
+        res.status(500).json({ error: 'Durum değiştirme başarısız oldu' });
     }
 });
 
