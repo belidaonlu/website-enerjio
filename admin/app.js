@@ -36,19 +36,25 @@ app.use(cors({
 
 // Firebase Admin SDK yapılandırması
 if (!admin.apps.length) {
-    admin.initializeApp({
+    const config = {
         credential: admin.credential.cert({
             projectId: process.env.FIREBASE_PROJECT_ID,
             clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
             privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-        }),
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET
-    });
+        })
+    };
+
+    // Storage Bucket varsa ekle
+    if (process.env.FIREBASE_STORAGE_BUCKET) {
+        config.storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
+    }
+
+    admin.initializeApp(config);
 }
 
 // Firestore ve Storage referansları
 const db = admin.firestore();
-const bucket = admin.storage().bucket();
+const bucket = process.env.FIREBASE_STORAGE_BUCKET ? admin.storage().bucket() : null;
 const postsCollection = db.collection('posts');
 
 // Express middleware
