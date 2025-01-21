@@ -3,101 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enerj.io Blog Yönetimi</title>
+    <title>Admin Dashboard - Enerj.io Blog</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.0-rc.2/dist/quill.snow.css" rel="stylesheet">
     <style>
-        .sidebar {
-            min-height: 100vh;
-            background: #1a1a1a;
-            color: white;
-        }
-        .sidebar .nav-link {
-            color: rgba(255,255,255,.8);
-            padding: 1rem;
-            transition: all 0.3s;
-        }
-        .sidebar .nav-link:hover {
-            background: rgba(255,255,255,.1);
-            color: white;
-        }
-        .sidebar .nav-link.active {
-            background: #007bff;
-            color: white;
-        }
         .main-content {
             min-height: 100vh;
             background: #f8f9fa;
+            padding: 2rem;
         }
         .post-card {
             background: white;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,.1);
-            transition: all 0.3s;
-        }
-        .post-card:hover {
-            box-shadow: 0 4px 8px rgba(0,0,0,.15);
         }
         .post-status {
-            padding: 4px 8px;
-            border-radius: 4px;
             font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 999px;
         }
         .status-published {
-            background: #28a745;
-            color: white;
+            background-color: #e3fcef;
+            color: #0d9488;
         }
         .status-draft {
-            background: #ffc107;
-            color: black;
+            background-color: #fef3c7;
+            color: #b45309;
         }
-        #editor {
-            height: 400px;
-            margin-bottom: 1rem;
+        .btn-action {
+            margin-left: 8px;
         }
-        .btn-outline-publish {
-            color: var(--enerj-green);
-            border-color: var(--enerj-green);
-            font-weight: 600;
+        .btn-publish {
+            background-color: #0d9488;
+            color: white;
+            border: none;
         }
-        .btn-outline-publish:hover {
-            background-color: var(--enerj-green);
-            border-color: var(--enerj-green);
+        .btn-publish:hover {
+            background-color: #0f766e;
+            color: white;
+        }
+        .btn-edit {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+        }
+        .btn-edit:hover {
+            background-color: #1d4ed8;
+            color: white;
+        }
+        .btn-delete {
+            background-color: #dc2626;
+            color: white;
+            border: none;
+        }
+        .btn-delete:hover {
+            background-color: #b91c1c;
             color: white;
         }
     </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 px-0 sidebar">
-                <div class="d-flex flex-column">
-                    <div class="p-3">
-                        <h5>Enerj.io Blog</h5>
-                        <small><%= user.email %></small>
-                    </div>
-                    <div class="nav flex-column">
-                        <a href="/admin/dashboard" class="nav-link active">
-                            <i class="bi bi-house"></i> Dashboard
-                        </a>
-                        <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#newPostModal">
-                            <i class="bi bi-plus-circle"></i> Yeni Yazı
-                        </a>
-                        <a href="/admin/logout" class="nav-link">
-                            <i class="bi bi-box-arrow-right"></i> Çıkış Yap
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Main Content -->
-            <div class="col-md-9 col-lg-10 main-content p-4">
+    <div class="container-fluid px-0">
+        <div class="main-content">
+            <div class="container">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h4>Blog Yazıları</h4>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newPostModal">
-                        Yeni Yazı Ekle
-                    </button>
+                    <div>
+                        <a href="/admin/new-post" class="btn btn-primary me-2">
+                            Yeni Yazı Ekle
+                        </a>
+                        <form action="/admin/logout" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-outline-danger">
+                                Çıkış Yap
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
                 <!-- Posts List -->
@@ -109,27 +88,39 @@
                                     <div>
                                         <h5><%= post.title %></h5>
                                         <small class="text-muted">
-                                            <%= new Date(post.createdAt).toLocaleDateString('tr-TR') %>
+                                            <% 
+                                            try {
+                                                const date = post.createdAt?.toDate ? post.createdAt.toDate() : new Date(post.createdAt);
+                                            %>
+                                                <%= date.toLocaleDateString('tr-TR', { 
+                                                    year: 'numeric', 
+                                                    month: 'long', 
+                                                    day: 'numeric'
+                                                }) %>
+                                            <% } catch (error) { %>
+                                                Tarih bilgisi yok
+                                            <% } %>
                                         </small>
                                         <span class="ms-2 post-status <%= post.published ? 'status-published' : 'status-draft' %>">
                                             <%= post.published ? 'Yayında' : 'Taslak' %>
                                         </span>
                                     </div>
-                                    <div class="btn-group">
+                                    <div class="d-flex align-items-center">
                                         <% if (!post.published) { %>
-                                            <button class="btn btn-sm btn-outline-publish" 
-                                                    onclick="publishPost('<%= post.id %>')">
-                                                Yayınla
-                                            </button>
+                                            <form action="/admin/posts/<%= post.id %>/toggle" method="POST" style="display: inline;">
+                                                <button type="submit" class="btn btn-sm btn-publish">
+                                                    Yayınla
+                                                </button>
+                                            </form>
                                         <% } %>
-                                        <button class="btn btn-sm btn-outline-edit" 
-                                                onclick="editPost('<%= post.id %>')">
+                                        <a href="/admin/edit-post/<%= post.id %>" class="btn btn-sm btn-edit ms-2">
                                             Düzenle
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-delete" 
-                                                onclick="deletePost('<%= post.id %>')">
-                                            Sil
-                                        </button>
+                                        </a>
+                                        <form action="/admin/posts/<%= post.id %>/delete" method="POST" style="display: inline;" onsubmit="return confirm('Bu yazıyı silmek istediğinizden emin misiniz?');">
+                                            <button type="submit" class="btn btn-sm btn-delete ms-2">
+                                                Sil
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
                             </div>
@@ -140,141 +131,6 @@
         </div>
     </div>
 
-    <!-- New Post Modal -->
-    <div class="modal fade" id="newPostModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Yeni Blog Yazısı</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="newPostForm">
-                        <div class="mb-3">
-                            <label class="form-label">Başlık</label>
-                            <input type="text" class="form-control" name="title" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">İçerik</label>
-                            <div id="editor"></div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Kapak Görseli</label>
-                            <input type="file" class="form-control" name="coverImage" accept="image/*">
-                        </div>
-                        <div class="form-check mb-3">
-                            <input type="checkbox" class="form-check-input" name="published" id="publishCheck">
-                            <label class="form-check-label" for="publishCheck">Hemen Yayınla</label>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                    <button type="button" class="btn btn-primary" onclick="savePost()">Kaydet</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.0-rc.2/dist/quill.min.js"></script>
-    <script>
-        // Quill editor initialization
-        const quill = new Quill('#editor', {
-            theme: 'snow',
-            modules: {
-                toolbar: [
-                    [{ 'header': [1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    ['link', 'image'],
-                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                    ['clean']
-                ]
-            }
-        });
-
-        // Save post function
-        async function savePost() {
-            const form = document.getElementById('newPostForm');
-            const formData = new FormData(form);
-            
-            // Get Quill content
-            formData.append('content', quill.root.innerHTML);
-            
-            try {
-                const response = await fetch('/admin/posts', {
-                    method: 'POST',
-                    credentials: 'include',
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    const error = await response.json();
-                    alert(error.message || 'Bir hata oluştu');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Bir hata oluştu');
-            }
-        }
-
-        // Edit post function
-        async function editPost(postId) {
-            window.location.href = `/admin/edit-post/${postId}`;
-        }
-
-        // Delete post function
-        async function deletePost(postId) {
-            if (confirm('Bu yazıyı silmek istediğinizden emin misiniz?')) {
-                try {
-                    const response = await fetch(`/admin/posts/${postId}`, {
-                        method: 'DELETE',
-                        credentials: 'include',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        window.location.reload();
-                    } else {
-                        const error = await response.json();
-                        alert(error.message || 'Silme işlemi başarısız oldu');
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    alert('Bir hata oluştu');
-                }
-            }
-        }
-
-        // Publish post function
-        async function publishPost(postId) {
-            if (confirm('Bu yazıyı yayınlamak istediğinizden emin misiniz?')) {
-                try {
-                    const response = await fetch(`/admin/posts/${postId}/publish`, {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (response.ok) {
-                        window.location.reload();
-                    } else {
-                        alert(result.message || 'Yayınlama işlemi başarısız oldu');
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    alert('Bir hata oluştu');
-                }
-            }
-        }
-    </script>
 </body>
 </html>

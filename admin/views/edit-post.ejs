@@ -5,15 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yazı Düzenle - Enerj.io Blog</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/5/tinymce.min.js" referrerpolicy="origin"></script>
-    <script>
-        tinymce.init({
-            selector: '#content',
-            height: 500,
-            plugins: 'advlist autolink lists link image charmap print preview anchor searchreplace visualblocks code fullscreen insertdatetime media table paste code help wordcount',
-            toolbar: 'undo redo | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help'
-        });
-    </script>
+    <script src="/node_modules/tinymce/tinymce.min.js"></script>
 </head>
 <body class="bg-gray-100">
     <nav class="bg-white shadow-lg">
@@ -35,7 +27,7 @@
                     <h2 class="text-lg leading-6 font-medium text-gray-900 mb-4">
                         Blog Yazısını Düzenle
                     </h2>
-                    <form action="/admin/posts/<%= post._id %>" method="POST" enctype="multipart/form-data" id="editPostForm">
+                    <form action="/admin/posts/<%= post._id %>" method="POST" enctype="multipart/form-data" id="editPostForm" onsubmit="updatePost(event)">
                         <div class="space-y-6">
                             <div>
                                 <label for="title" class="block text-sm font-medium text-gray-700">
@@ -60,12 +52,17 @@
                                 <label for="content" class="block text-sm font-medium text-gray-700">
                                     İçerik
                                 </label>
-                                <textarea id="content" name="content" rows="10" required
-                                    class="mt-1 block w-full shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm border-gray-300 rounded-md"><%= post.content %></textarea>
+                                <div class="mt-1 relative">
+                                    <textarea id="content" name="content" rows="10" required
+                                        class="mt-1 block w-full shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm border-gray-300 rounded-md"><%= post.content %></textarea>
+                                    <div class="mt-2 text-sm text-gray-500" id="characterCount">
+                                        Karakter: 0 / 1,048,576 bytes (Firebase limit)
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="flex justify-end">
-                                <button type="submit"
+                                <button type="submit" id="submitButton"
                                     class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-500 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                     Güncelle
                                 </button>
@@ -78,6 +75,55 @@
     </div>
 
     <script>
+        let editor = null;
+        const FIREBASE_LIMIT = 1048576; // 1MB in bytes
+
+        // TinyMCE başlatma
+        window.addEventListener('load', function() {
+            tinymce.init({
+                selector: '#content',
+                height: 500,
+                plugins: 'advlist autolink lists link image charmap print preview anchor searchreplace visualblocks code fullscreen insertdatetime media table paste code help wordcount',
+                toolbar: 'undo redo | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
+                setup: function(ed) {
+                    editor = ed;
+                    ed.on('init', function() {
+                        console.log('TinyMCE başlatıldı');
+                        updateCharacterCount(); // İlk yüklemede sayacı güncelle
+                    });
+                    ed.on('KeyUp', updateCharacterCount);
+                    ed.on('Change', updateCharacterCount);
+                }
+            });
+        });
+
+        // Karakter sayısını güncelle
+        function updateCharacterCount() {
+            if (editor) {
+                const content = editor.getContent();
+                const byteSize = new Blob([content]).size;
+                const countElement = document.getElementById('characterCount');
+                const submitButton = document.getElementById('submitButton');
+                
+                // Renk değişimi için class'ları güncelle
+                if (byteSize > FIREBASE_LIMIT) {
+                    countElement.className = 'mt-2 text-sm text-red-500 font-bold';
+                    submitButton.disabled = true;
+                    submitButton.className = 'ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-gray-400 cursor-not-allowed';
+                } else if (byteSize > FIREBASE_LIMIT * 0.9) { // %90'ı aşıldığında uyarı
+                    countElement.className = 'mt-2 text-sm text-yellow-500 font-bold';
+                    submitButton.disabled = false;
+                    submitButton.className = 'ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-500 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500';
+                } else {
+                    countElement.className = 'mt-2 text-sm text-gray-500';
+                    submitButton.disabled = false;
+                    submitButton.className = 'ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-500 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500';
+                }
+                
+                countElement.textContent = `Karakter: ${byteSize.toLocaleString()} / ${FIREBASE_LIMIT.toLocaleString()} bytes (Firebase limit)`;
+            }
+        }
+
         // Form submit fonksiyonu
         async function updatePost(event) {
             event.preventDefault();
@@ -85,8 +131,22 @@
             const form = document.getElementById('editPostForm');
             const formData = new FormData(form);
             
-            // TinyMCE içeriğini ekle
-            formData.append('content', tinymce.get('content').getContent());
+            if (editor && editor.initialized) {
+                const content = editor.getContent();
+                const byteSize = new Blob([content]).size;
+                
+                if (byteSize > FIREBASE_LIMIT) {
+                    alert('İçerik boyutu Firebase limitini (1MB) aşıyor. Lütfen içeriği kısaltın.');
+                    return;
+                }
+                
+                formData.append('content', content);
+                console.log('TinyMCE içeriği alındı');
+            } else {
+                const textArea = document.getElementById('content');
+                formData.append('content', textArea.value);
+                console.log('Textarea içeriği alındı');
+            }
             
             try {
                 const response = await fetch(`/admin/posts/<%= post.id %>`, {
@@ -98,19 +158,16 @@
                 const result = await response.json();
                 
                 if (response.ok) {
-                    // Başarılı güncelleme durumunda dashboard'a yönlendir
                     window.location.href = '/admin/dashboard';
                 } else {
-                    alert(result.message || 'Güncelleme sırasında bir hata oluştu');
+                    console.error('Sunucu hatası:', result);
+                    alert('Güncelleme sırasında bir hata oluştu: ' + (result.error || 'Bilinmeyen hata'));
                 }
             } catch (error) {
-                console.error('Error:', error);
-                alert('Güncelleme sırasında bir hata oluştu');
+                console.error('Hata:', error);
+                alert('Güncelleme sırasında bir hata oluştu: ' + error.message);
             }
         }
-
-        // Form submit event listener'ı ekle
-        document.getElementById('editPostForm').addEventListener('submit', updatePost);
     </script>
 </body>
 </html>
