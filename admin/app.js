@@ -272,45 +272,42 @@ app.post('/admin/posts', requireAuth, upload.single('coverImage'), async (req, r
         let coverImageUrl = '';
 
         if (req.file) {
-            // Firebase Storage'a yükle
-            const uniqueFileName = `${uuidv4()}${path.extname(req.file.originalname)}`;
+            const uniqueFileName = `${Date.now()}-${Math.round(Math.random() * 1000000000)}.${req.file.originalname.split('.').pop()}`;
             const file = bucket.file(`blog-images/${uniqueFileName}`);
             
-            // Dosyayı Firebase'e yükle
             await file.save(fs.readFileSync(req.file.path), {
                 metadata: {
                     contentType: req.file.mimetype,
                 }
             });
 
-            // Public URL al
             await file.makePublic();
             coverImageUrl = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/blog-images/${uniqueFileName}`;
             
-            // Geçici dosyayı sil
             fs.unlinkSync(req.file.path);
         }
 
-        // Firestore'a kaydet
-        const docRef = await postsCollection.add({
+        const postData = {
             title,
             content,
             coverImage: coverImageUrl,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             published: false,
             author: {
-                name: req.session.user.name || 'Admin',
+                name: req.session.user.name,
                 email: req.session.user.email
             }
-        });
+        };
 
+        await postsCollection.add(postData);
         res.redirect('/admin/dashboard');
+
     } catch (error) {
-        console.error('Yeni yazı ekleme hatası:', error);
-        res.status(500).render('error', {
-            message: 'Yazı eklenirken bir hata oluştu',
-            error: error
+        console.error('Post oluşturma hatası:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Post oluşturulurken bir hata oluştu',
+            error: error.message 
         });
     }
 });
@@ -346,9 +343,6 @@ app.get('/admin/edit-post/:id', requireAuth, async (req, res) => {
 
 app.post('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (req, res) => {
     try {
-        console.log('POST update isteği alındı');
-        console.log('Body:', req.body);
-        
         const { title, content } = req.body;
         const postRef = postsCollection.doc(req.params.id);
         const post = await postRef.get();
@@ -371,8 +365,9 @@ app.post('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (re
             const oldPost = post.data();
             if (oldPost.coverImage) {
                 try {
-                    const oldImageName = oldPost.coverImage.split('/').pop();
-                    const oldImageFile = bucket.file(`blog-images/${oldImageName}`);
+                    const oldImageUrl = new URL(oldPost.coverImage);
+                    const oldImagePath = oldImageUrl.pathname.split('/').slice(2).join('/');
+                    const oldImageFile = bucket.file(oldImagePath);
                     await oldImageFile.delete();
                 } catch (err) {
                     console.error('Eski resim silinirken hata:', err);
@@ -380,26 +375,23 @@ app.post('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (re
             }
 
             // Yeni resmi Firebase Storage'a yükle
-            const uniqueFileName = `${uuidv4()}${path.extname(req.file.originalname)}`;
-            const file = bucket.file(`blog-images/${uniqueFileName}`);
+            const uniqueFileName = `blog-images/${Date.now()}-${Math.round(Math.random() * 1000000000)}.${req.file.originalname.split('.').pop()}`;
+            const file = bucket.file(uniqueFileName);
             
-            // Dosyayı Firebase'e yükle
             await file.save(fs.readFileSync(req.file.path), {
                 metadata: {
                     contentType: req.file.mimetype,
                 }
             });
 
-            // Public URL al
             await file.makePublic();
-            updateData.coverImage = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/blog-images/${uniqueFileName}`;
+            updateData.coverImage = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/${uniqueFileName}`;
             
-            // Geçici dosyayı sil
             fs.unlinkSync(req.file.path);
         }
 
         await postRef.update(updateData);
-        res.redirect('/admin/dashboard');
+        res.json({ success: true });
 
     } catch (error) {
         console.error('Post güncelleme hatası:', error);
@@ -434,51 +426,6 @@ app.get('/admin/edit-post/:id', requireAuth, async (req, res) => {
     }
 });
 
-app.put('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (req, res) => {
-    try {
-        const postData = {
-            title: req.body.title,
-            content: req.body.content,
-            published: false, // Her güncelleme sonrası taslak olarak ayarla
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        };
-
-        if (req.file) {
-            // Eğer yeni bir görsel yüklendiyse
-            const bucket = admin.storage().bucket();
-            const blob = bucket.file(req.file.filename);
-            
-            await new Promise((resolve, reject) => {
-                const blobStream = blob.createWriteStream({
-                    metadata: {
-                        contentType: req.file.mimetype,
-                    },
-                });
-
-                blobStream.on('error', reject);
-                blobStream.on('finish', resolve);
-                blobStream.end(req.file.buffer);
-            });
-
-            const [url] = await blob.getSignedUrl({
-                action: 'read',
-                expires: '03-01-2500',
-            });
-
-            postData.coverImage = url;
-        }
-
-        await postsCollection.doc(req.params.id).update(postData);
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Güncelleme hatası:', error);
-        res.status(500).json({ 
-            error: 'Güncelleme başarısız oldu', 
-            details: error.message 
-        });
-    }
-});
-
 app.post('/admin/posts/:id/delete', requireAuth, async (req, res) => {
     try {
         const postRef = postsCollection.doc(req.params.id);
@@ -495,8 +442,10 @@ app.post('/admin/posts/:id/delete', requireAuth, async (req, res) => {
         const postData = post.data();
         if (postData.coverImage) {
             try {
-                const imageName = postData.coverImage.split('/').pop();
-                await bucket.file(`blog-images/${imageName}`).delete();
+                const oldImageUrl = new URL(postData.coverImage);
+                const oldImagePath = oldImageUrl.pathname.split('/').slice(2).join('/');
+                const oldImageFile = bucket.file(oldImagePath);
+                await oldImageFile.delete();
             } catch (err) {
                 console.error('Cover image silinirken hata:', err);
             }
@@ -572,25 +521,22 @@ app.get('/public/posts', async (req, res) => {
     try {
         console.log('Public blog yazıları talep edildi');
         
-        // Firebase bağlantısını kontrol et
         if (!admin.apps.length) {
             console.error('Firebase bağlantısı bulunamadı');
             return res.status(500).json({ error: 'Veritabanı bağlantısı kurulamadı' });
         }
 
-        console.log('Firebase bağlantısı mevcut, koleksiyona erişiliyor...');
-        
-        // Şimdilik sadece yayınlanmış gönderileri al, sıralama yok
         const snapshot = await postsCollection.where('published', '==', true).get();
         const posts = [];
         
-        console.log('Sorgu sonucu:', snapshot.size, 'adet yazı bulundu');
-        
         snapshot.forEach(doc => {
             const data = doc.data();
-            console.log('Ham veri:', data);
+            console.log('Blog yazısı verileri:', {
+                id: doc.id,
+                title: data.title,
+                coverImage: data.coverImage
+            });
             
-            // Content bir dizi ise, birleştir
             let content = '';
             if (Array.isArray(data.content)) {
                 content = data.content.join(' ');
@@ -598,31 +544,40 @@ app.get('/public/posts', async (req, res) => {
                 content = data.content;
             }
             
-            console.log('Content tipi:', typeof content);
-            console.log('Content örneği:', content ? content.substring(0, 100) : 'İçerik yok');
+            // Firebase Storage URL'sini kontrol et ve düzelt
+            let imageUrl = data.coverImage || '';
+            console.log('Orijinal coverImage URL:', imageUrl);
+            
+            if (imageUrl && !imageUrl.startsWith('http')) {
+                imageUrl = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/blog-images/${imageUrl}`;
+            }
+            console.log('Düzeltilmiş coverImage URL:', imageUrl);
             
             posts.push({
                 _id: doc.id,
                 title: data.title || '',
-                content: content, // Ham içeriği gönder
-                coverImage: data.coverImage || '', // image yerine coverImage kullan
+                content: content,
+                coverImage: imageUrl,
                 createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
                 published: data.published || false,
                 author: data.author || null
             });
         });
         
-        // Yazıları tarih sırasına göre JavaScript'te sırala
         posts.sort((a, b) => b.createdAt - a.createdAt);
         
-        console.log('İşlenmiş yazılar:', posts);
+        console.log('Gönderilen blog yazıları:', posts.map(p => ({
+            id: p._id,
+            title: p.title,
+            coverImage: p.coverImage
+        })));
+        
         return res.json(posts);
     } catch (error) {
-        console.error('Blog yazıları alınırken detaylı hata:', error);
+        console.error('Blog yazıları alınırken hata:', error);
         return res.status(500).json({ 
             error: 'Blog yazıları alınamadı',
-            details: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            details: error.message
         });
     }
 });

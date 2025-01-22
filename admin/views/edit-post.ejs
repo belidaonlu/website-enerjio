@@ -224,9 +224,9 @@
             }
 
             try {
-                console.log('PUT isteği gönderiliyor...');
+                console.log('POST isteği gönderiliyor...');
                 const response = await fetch(`/admin/posts/<%= post.id %>`, {
-                    method: 'PUT',
+                    method: 'POST',
                     credentials: 'include',
                     body: formData
                 });

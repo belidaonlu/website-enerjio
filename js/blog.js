@@ -26,21 +26,24 @@ async function loadBlogPosts() {
         const posts = await response.json();
         console.log('Gelen blog yazıları:', posts);
         
-        if (!Array.isArray(posts)) {
-            throw new Error('Blog yazıları bir dizi değil: ' + JSON.stringify(posts));
-        }
-
         // Blog yazıları başarıyla yüklendi
         loadingElement.style.display = 'none';
         
-        if (posts.length === 0) {
+        if (!Array.isArray(posts) || posts.length === 0) {
             blogGrid.innerHTML = '<div class="no-posts">Henüz blog yazısı bulunmuyor.</div>';
             return;
         }
         
         posts.forEach(post => {
+            console.log('İşlenen yazı:', {
+                id: post._id,
+                title: post.title,
+                coverImage: post.coverImage
+            });
+
             // Firebase Storage URL'ini doğrudan kullan
             const imageUrl = post.coverImage || '/images/default.jpg';
+            console.log('Kullanılacak görsel URL:', imageUrl);
             
             const postElement = document.createElement('div');
             postElement.className = 'blog-card';
@@ -49,8 +52,8 @@ async function loadBlogPosts() {
             imageElement.src = imageUrl;
             imageElement.alt = post.title || 'Blog görseli';
             imageElement.className = 'blog-image-content';
-            imageElement.onerror = () => {
-                console.error('Resim yüklenemedi:', imageUrl);
+            imageElement.onerror = (e) => {
+                console.error('Görsel yüklenemedi:', imageUrl, e);
                 imageElement.src = '/images/default.jpg';
             };
             
@@ -74,7 +77,7 @@ async function loadBlogPosts() {
             // İçeriği decode et ve HTML etiketlerini temizle
             const decodedContent = decodeHTML(post.content);
             const plainContent = decodedContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-            excerptElement.textContent = plainContent ? plainContent.substring(0, 150) + '...' : '';
+            excerptElement.textContent = plainContent.substring(0, 150) + '...';
             
             const readMoreElement = document.createElement('a');
             readMoreElement.href = `blog-post.html?id=${post._id}`;
