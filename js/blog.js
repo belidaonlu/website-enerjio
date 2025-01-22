@@ -32,7 +32,8 @@ async function loadBlogPosts() {
         }
         
         posts.forEach(post => {
-            const imageUrl = post.image ? `http://localhost:3002/uploads/${post.image}` : '/images/default.jpg';
+            // Firebase Storage'dan gelen coverImage URL'sini kullan
+            const imageUrl = post.coverImage || '/images/default.jpg';
             
             const postElement = document.createElement('div');
             postElement.className = 'blog-card';

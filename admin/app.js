@@ -631,7 +631,7 @@ app.get('/public/posts', async (req, res) => {
                 _id: doc.id,
                 title: data.title || '',
                 content: plainContent,
-                image: data.coverImage ? data.coverImage.replace(/^\/uploads\//, '') : '', // coverImage'ı image olarak dönüştür ve /uploads/ önekini kaldır
+                coverImage: data.coverImage || '', // image yerine coverImage kullan
                 createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
                 published: data.published || false
             });

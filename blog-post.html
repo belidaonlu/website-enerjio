@@ -219,17 +219,12 @@
             day: 'numeric'
         });
         
-        
         // Resim işleme
         const imageElement = document.querySelector('.blog-post-image img');
         const imageContainer = document.querySelector('.blog-post-image');
         
-        if (post.coverImage && post.coverImage.startsWith('/')) {
-            // Eğer coverImage bir yerel yol ise (örn: /uploads/...)
-            imageElement.src = `http://localhost:3002${post.coverImage}`;
-            imageContainer.style.display = 'block';
-        } else if (post.coverImage) {
-            // Eğer coverImage tam URL ise
+        if (post.coverImage) {
+            // Firebase Storage'dan gelen URL'yi doğrudan kullan
             imageElement.src = post.coverImage;
             imageContainer.style.display = 'block';
         } else {
