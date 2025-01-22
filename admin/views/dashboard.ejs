@@ -33,148 +33,149 @@
             margin-left: 8px;
         }
         .btn-publish {
-            background-color: #0d9488;
+            background-color: #eacb00;
             color: white;
             border: none;
         }
         .btn-publish:hover {
-            background-color: #0f766e;
+            background-color: #f2de5e;
             color: white;
         }
         .btn-edit {
-            background-color: #2563eb;
+            background-color: #04AA6D;
             color: white;
             border: none;
         }
         .btn-edit:hover {
-            background-color: #1d4ed8;
+            background-color: #028454;
             color: white;
         }
         .btn-delete {
-            background-color: #dc2626;
+            background-color: #dc3545;
             color: white;
             border: none;
         }
         .btn-delete:hover {
-            background-color: #b91c1c;
+            background-color: #bb2d3b;
             color: white;
+        }
+        .navbar {
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+        }
+        .navbar-brand img {
+            height: 40px;
+        }
+        .post-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        .post-date {
+            color: #666;
+            font-size: 0.875rem;
+        }
+        .alert {
+            margin-bottom: 2rem;
         }
     </style>
 </head>
 <body>
-    <div class="container-fluid px-0">
-        <div class="main-content">
-            <div class="container">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h4>Blog Yazıları</h4>
-                    <div>
-                        <a href="/admin/new-post" class="btn btn-primary me-2" onclick="window.location.href='/admin/new-post'">
-                            Yeni Yazı Ekle
-                        </a>
-                        <form action="/admin/logout" method="POST" class="d-inline" onsubmit="handleLogout(event)">
-                            <button type="submit" class="btn btn-outline-danger">
-                                Çıkış Yap
-                            </button>
-                        </form>
-                    </div>
-                </div>
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container">
+            <a class="navbar-brand" href="/admin/dashboard">
+                <img src="/images/enerjioLogo.svg" alt="Enerj.io Logo">
+            </a>
+            <div class="d-flex">
+                <a href="/admin/new-post" class="btn btn-primary me-2">
+                    Yeni Yazı Ekle
+                </a>
+                <form action="/admin/logout" method="POST" class="d-inline" onsubmit="handleLogout(event)">
+                    <button type="submit" class="btn btn-outline-danger">
+                        Çıkış Yap
+                    </button>
+                </form>
+            </div>
+        </div>
+    </nav>
 
-                <!-- Posts List -->
-                <div class="row">
-                    <% posts.forEach(post => { %>
-                        <div class="col-12 mb-3">
-                            <div class="post-card p-3">
+    <div class="main-content">
+        <div class="container">
+            <% if (message) { %>
+                <div class="alert alert-<%= messageType %>">
+                    <%= message %>
+                </div>
+            <% } %>
+
+            <div class="row">
+                <div class="col-12">
+                    <% if (posts.length > 0) { %>
+                        <% posts.forEach(post => { %>
+                            <div class="post-card mb-4 p-4">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div>
-                                        <h5><%= post.title %></h5>
-                                        <small class="text-muted">
-                                            <% 
-                                            try {
-                                                const date = post.createdAt?.toDate ? post.createdAt.toDate() : new Date(post.createdAt);
-                                            %>
-                                                <%= date.toLocaleDateString('tr-TR', { 
-                                                    year: 'numeric', 
-                                                    month: 'long', 
-                                                    day: 'numeric'
-                                                }) %>
-                                            <% } catch (error) { %>
-                                                Tarih bilgisi yok
-                                            <% } %>
-                                        </small>
-                                        <span class="ms-2 post-status <%= post.published ? 'status-published' : 'status-draft' %>">
+                                        <h2 class="post-title mb-2"><%= post.title %></h2>
+                                        <div class="post-date mb-2">
+                                            <%= post.createdAt ? new Date(post.createdAt).toLocaleDateString('tr-TR', { 
+                                                year: 'numeric', 
+                                                month: 'long', 
+                                                day: 'numeric' 
+                                            }) : 'Tarih belirtilmemiş' %>
+                                        </div>
+                                        <span class="post-status <%= post.published ? 'status-published' : 'status-draft' %>">
                                             <%= post.published ? 'Yayında' : 'Taslak' %>
                                         </span>
                                     </div>
-                                    <div class="d-flex align-items-center">
-                                        <% if (!post.published) { %>
-                                            <form action="/admin/posts/<%= post.id %>/toggle" method="POST" class="d-inline">
-                                                <button type="submit" class="btn btn-sm btn-publish">
-                                                    Yayınla
-                                                </button>
-                                            </form>
-                                        <% } %>
-                                        <a href="/admin/edit-post/<%= post.id %>" class="btn btn-sm btn-edit ms-2">
+                                    <div class="d-flex">
+                                        <form action="/admin/posts/<%= post.id %>/toggle" method="POST" class="d-inline">
+                                            <button type="submit" class="btn btn-publish btn-action">
+                                                <%= post.published ? 'Yayından Kaldır' : 'Yayınla' %>
+                                            </button>
+                                        </form>
+                                        <a href="/admin/edit-post/<%= post.id %>" class="btn btn-edit btn-action">
                                             Düzenle
                                         </a>
-                                        <form action="/admin/posts/<%= post.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Bu yazıyı silmek istediğinizden emin misiniz?');">
-                                            <input type="hidden" name="_method" value="DELETE">
-                                            <button type="submit" class="btn btn-sm btn-danger ms-2">
+                                        <form action="/admin/posts/<%= post.id %>/delete" method="POST" class="d-inline delete-form">
+                                            <button type="submit" class="btn btn-delete btn-action" onclick="return confirm('Bu yazıyı silmek istediğinizden emin misiniz?')">
                                                 Sil
                                             </button>
                                         </form>
                                     </div>
                                 </div>
                             </div>
+                        <% }); %>
+                    <% } else { %>
+                        <div class="alert alert-info">
+                            Henüz blog yazısı bulunmuyor.
                         </div>
-                    <% }) %>
+                    <% } %>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Firebase SDK'ları -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-    
-    <!-- Firebase yapılandırması -->
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyB84ol0Fu-nJtU8I5S8dajMFVjhgdyFQ8Y",
-            authDomain: "enerjio-website.firebaseapp.com",
-            projectId: "enerjio-website",
-            storageBucket: "enerjio-website.firebasestorage.app",
-            messagingSenderId: "71871281855",
-            appId: "1:71871281855:web:6d198285f5d37495e1a40a",
-            measurementId: "G-LR8RX0VYF3"
-        };
-
-        // Firebase'i başlat
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-    </script>
-
-    <!-- Bootstrap ve diğer scriptler -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Logout işlemi -->
     <script>
-    async function handleLogout(event) {
-        event.preventDefault();
-        
-        try {
-            // Önce Firebase'den çıkış yap
-            if (firebase.auth) {
-                await firebase.auth().signOut();
-            }
+        async function handleLogout(event) {
+            event.preventDefault();
             
-            // Sonra formu submit et
-            event.target.submit();
-        } catch (error) {
-            console.error('Logout error:', error);
-            alert('Çıkış yapılırken bir hata oluştu');
+            try {
+                const response = await fetch('/admin/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    window.location.href = '/admin/login';
+                } else {
+                    console.error('Çıkış yapılırken hata oluştu');
+                }
+            } catch (error) {
+                console.error('Çıkış yapılırken hata:', error);
+            }
         }
-    }
     </script>
 </body>
 </html>

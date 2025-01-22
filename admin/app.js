@@ -38,25 +38,19 @@ app.use(cors({
 
 // Firebase Admin SDK yapılandırması
 if (!admin.apps.length) {
-    const config = {
+    admin.initializeApp({
         credential: admin.credential.cert({
             projectId: process.env.FIREBASE_PROJECT_ID,
             clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
             privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-        })
-    };
-
-    // Storage Bucket varsa ekle
-    if (process.env.FIREBASE_STORAGE_BUCKET) {
-        config.storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
-    }
-
-    admin.initializeApp(config);
+        }),
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET
+    });
 }
 
 // Firestore ve Storage referansları
 const db = admin.firestore();
-const bucket = process.env.FIREBASE_STORAGE_BUCKET ? admin.storage().bucket() : null;
+const bucket = admin.storage().bucket();
 const postsCollection = db.collection('posts');
 
 // Express middleware
@@ -79,7 +73,8 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000,
         sameSite: 'lax'
     },
-    name: 'sessionId'
+    name: 'sessionId',
+    unset: 'destroy'
 }));
 
 // Method override middleware ekleyin (en üstte diğer middleware'lerden önce)
@@ -93,19 +88,30 @@ app.use((req, res, next) => {
     next();
 });
 
-// Multer yapılandırması
-const storage = multer.memoryStorage(); // Dosyaları bellekte tutacağız
+// Uploads klasörünü kontrol et ve oluştur
+const uploadDir = path.join(__dirname, 'public', 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Multer configuration
 const upload = multer({
-    storage: storage,
-    limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB limit
-    },
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith('image/')) {
-            cb(null, true);
-        } else {
-            cb(new Error('Sadece görsel dosyalar yüklenebilir.'));
+    storage: multer.diskStorage({
+        destination: uploadDir,
+        filename: (req, file, cb) => {
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            cb(null, uniqueSuffix + path.extname(file.originalname));
         }
+    }),
+    fileFilter: (req, file, cb) => {
+        if (!file.mimetype.startsWith('image/')) {
+            cb(new Error('Sadece resim dosyaları yüklenebilir.'), false);
+            return;
+        }
+        cb(null, true);
+    },
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB limit
     }
 });
 
@@ -115,7 +121,7 @@ app.use((err, req, res, next) => {
         if (err.code === 'LIMIT_FILE_SIZE') {
             return res.status(400).json({
                 success: false,
-                message: 'Dosya boyutu çok büyük! Maksimum 10MB yükleyebilirsiniz.'
+                message: 'Dosya boyutu çok büyük! Maksimum 5MB yükleyebilirsiniz.'
             });
         }
     }
@@ -213,20 +219,14 @@ app.post('/admin/login', async (req, res) => {
     }
 });
 
-app.post('/admin/logout', async (req, res) => {
-    try {
-        // Session'ı temizle
-        req.session.destroy();
-        
-        // Login sayfasına yönlendir ve logout parametresi ekle
-        res.redirect('/admin/login?logout=true');
-    } catch (error) {
-        console.error('Logout error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Çıkış yapılırken bir hata oluştu' 
-        });
-    }
+app.post('/admin/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('Session destroy error:', err);
+        }
+        res.clearCookie('sessionId');
+        res.redirect('/admin/login');
+    });
 });
 
 app.get('/admin/dashboard', requireAuth, async (req, res) => {
@@ -254,21 +254,24 @@ app.get('/admin/dashboard', requireAuth, async (req, res) => {
 // Blog post routes
 app.post('/admin/posts', requireAuth, upload.single('coverImage'), async (req, res) => {
     try {
-        if (!req.body.title || !req.body.content) {
+        console.log('Yeni yazı ekleme isteği alındı');
+        console.log('Body:', req.body);
+        console.log('File:', req.file);
+        
+        const { title, content, published } = req.body;
+        
+        if (!title || !content) {
             return res.status(400).json({ 
                 success: false, 
                 message: 'Başlık ve içerik zorunludur' 
             });
         }
 
-        const { title, content, published } = req.body;
-        const coverImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
-        
         const post = {
             title,
             content,
-            coverImage: coverImageUrl,
-            published: published === 'true' || published === 'on',
+            coverImage: req.file ? `/uploads/${req.file.filename}` : null,
+            published: published === 'true',
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             author: {
@@ -278,16 +281,102 @@ app.post('/admin/posts', requireAuth, upload.single('coverImage'), async (req, r
         };
 
         const docRef = await postsCollection.add(post);
-        res.status(201).json({ 
-            success: true, 
-            message: 'Post başarıyla oluşturuldu',
-            postId: docRef.id 
+        res.redirect('/admin/dashboard');
+
+    } catch (error) {
+        console.error('Yeni yazı ekleme hatası:', error);
+        res.status(500).render('error', {
+            message: 'Yazı eklenirken bir hata oluştu',
+            error: error
+        });
+    }
+});
+
+app.get('/admin/new-post', requireAuth, (req, res) => {
+    res.render('new-post', { 
+        user: req.session.user
+    });
+});
+
+app.get('/admin/edit-post/:id', requireAuth, async (req, res) => {
+    try {
+        const postDoc = await postsCollection.doc(req.params.id).get();
+        if (!postDoc.exists) {
+            return res.status(404).send('Post bulunamadı');
+        }
+
+        const post = {
+            id: postDoc.id,
+            ...postDoc.data(),
+            createdAt: postDoc.data().createdAt?.toDate()
+        };
+
+        res.render('edit-post', { 
+            post,
+            user: req.session.user
         });
     } catch (error) {
-        console.error('Error creating post:', error);
+        console.error('Error fetching post:', error);
+        res.status(500).send('Post getirme hatası');
+    }
+});
+
+app.post('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (req, res) => {
+    try {
+        console.log('POST update isteği alındı');
+        console.log('Body:', req.body);
+        
+        const { title, content } = req.body;
+        const postRef = postsCollection.doc(req.params.id);
+        const post = await postRef.get();
+
+        if (!post.exists) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Post bulunamadı' 
+            });
+        }
+
+        const updateData = {
+            title,
+            content,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+
+        if (req.file) {
+            // Eski resmi sil
+            const oldPost = post.data();
+            if (oldPost.coverImage) {
+                const oldImageName = oldPost.coverImage.split('/').pop();
+                try {
+                    await bucket.file(`blog-images/${oldImageName}`).delete();
+                } catch (err) {
+                    console.error('Eski resim silinirken hata:', err);
+                }
+            }
+
+            // Yeni resmi yükle
+            const uniqueFileName = `${uuidv4()}${path.extname(req.file.originalname)}`;
+            const uploadPath = path.join(__dirname, 'public/uploads', uniqueFileName);
+            
+            // Dosyayı local'e kaydet
+            fs.copyFileSync(req.file.path, uploadPath);
+            
+            // URL'i ayarla
+            updateData.coverImage = `/uploads/${uniqueFileName}`;
+            
+            // Geçici dosyayı sil
+            fs.unlinkSync(req.file.path);
+        }
+
+        await postRef.update(updateData);
+        res.redirect('/admin/dashboard');
+
+    } catch (error) {
+        console.error('Post güncelleme hatası:', error);
         res.status(500).json({ 
             success: false, 
-            message: 'Post oluşturulurken bir hata oluştu',
+            message: 'Post güncellenirken bir hata oluştu',
             error: error.message 
         });
     }
@@ -361,32 +450,40 @@ app.put('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (req
     }
 });
 
-// Silme route'unu güncelleyin
-app.delete('/admin/posts/:id', requireAuth, async (req, res) => {
+app.post('/admin/posts/:id/delete', requireAuth, async (req, res) => {
     try {
         const postRef = postsCollection.doc(req.params.id);
         const post = await postRef.get();
-        
+
         if (!post.exists) {
-            return res.status(404).send('Post bulunamadı');
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Post bulunamadı' 
+            });
         }
 
-        // Eğer post'un bir görseli varsa, onu da sil
-        if (post.data().coverImage) {
+        // Önce post'un cover image'ını sil (eğer varsa)
+        const postData = post.data();
+        if (postData.coverImage) {
             try {
-                const imageUrl = new URL(post.data().coverImage);
-                const imagePath = imageUrl.pathname.split('/').pop();
-                await bucket.file(imagePath).delete();
-            } catch (error) {
-                console.error('Görsel silinirken hata:', error);
+                const imageName = postData.coverImage.split('/').pop();
+                await bucket.file(`blog-images/${imageName}`).delete();
+            } catch (err) {
+                console.error('Cover image silinirken hata:', err);
             }
         }
 
+        // Post'u sil
         await postRef.delete();
         res.redirect('/admin/dashboard');
+
     } catch (error) {
-        console.error('Silme hatası:', error);
-        res.status(500).send('Silme işlemi başarısız oldu');
+        console.error('Post silme hatası:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Post silinirken bir hata oluştu',
+            error: error.message 
+        });
     }
 });
 
@@ -486,7 +583,7 @@ app.get('/public/posts', async (req, res) => {
                 _id: doc.id,
                 title: data.title || '',
                 content: plainContent,
-                image: data.coverImage ? data.coverImage.replace(/^\/uploads\//, '') : '', // coverImage'ı image olarak dönüştür ve /uploads/ önekini kaldır
+                coverImage: data.coverImage || '', // image yerine coverImage kullan
                 createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
                 published: data.published || false
             });
@@ -518,9 +615,10 @@ app.get('/public/posts/:id', async (req, res) => {
             _id: doc.id,
             title: data.title || '',
             content: data.content || '',
-            image: data.image || '',
+            coverImage: data.coverImage || '',
             createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
-            published: data.published || false
+            published: data.published || false,
+            author: data.author || null
         });
     } catch (error) {
         console.error('Blog yazısı alınırken hata:', error);
@@ -545,7 +643,7 @@ app.use((err, req, res, next) => {
         if (err.code === 'LIMIT_FILE_SIZE') {
             return res.status(400).json({
                 success: false,
-                message: 'Dosya boyutu çok büyük (maksimum 10MB)'
+                message: 'Dosya boyutu çok büyük (maksimum 5MB)'
             });
         }
         return res.status(400).json({
