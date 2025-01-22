@@ -601,20 +601,14 @@ app.get('/public/posts', async (req, res) => {
             console.log('Content tipi:', typeof content);
             console.log('Content örneği:', content ? content.substring(0, 100) : 'İçerik yok');
             
-            // HTML içeriğini düz metne çevir
-            let plainContent = '';
-            if (content) {
-                // HTML etiketlerini kaldır
-                plainContent = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-            }
-            
             posts.push({
                 _id: doc.id,
                 title: data.title || '',
-                content: plainContent,
+                content: content, // Ham içeriği gönder
                 coverImage: data.coverImage || '', // image yerine coverImage kullan
                 createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
-                published: data.published || false
+                published: data.published || false,
+                author: data.author || null
             });
         });
         

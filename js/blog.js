@@ -1,3 +1,10 @@
+// HTML karakterlerini decode et
+function decodeHTML(html) {
+    const txt = document.createElement('textarea');
+    txt.innerHTML = html;
+    return txt.value;
+}
+
 // Blog yazılarını yükle
 async function loadBlogPosts() {
     const loadingElement = document.querySelector('.loading');
@@ -55,7 +62,7 @@ async function loadBlogPosts() {
             contentDiv.className = 'blog-content';
             
             const titleElement = document.createElement('h2');
-            titleElement.textContent = post.title;
+            titleElement.textContent = decodeHTML(post.title); // Başlığı decode et
             
             const dateElement = document.createElement('p');
             dateElement.className = 'date';
@@ -64,7 +71,10 @@ async function loadBlogPosts() {
             
             const excerptElement = document.createElement('p');
             excerptElement.className = 'excerpt';
-            excerptElement.textContent = post.content ? post.content.substring(0, 150) + '...' : '';
+            // İçeriği decode et ve HTML etiketlerini temizle
+            const decodedContent = decodeHTML(post.content);
+            const plainContent = decodedContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            excerptElement.textContent = plainContent ? plainContent.substring(0, 150) + '...' : '';
             
             const readMoreElement = document.createElement('a');
             readMoreElement.href = `blog-post.html?id=${post._id}`;
