@@ -127,15 +127,15 @@
                                         </span>
                                     </div>
                                     <div class="d-flex">
-                                        <form action="/admin/posts/<%= post.id %>/toggle" method="POST" class="d-inline">
+                                        <form action="/admin/posts/<%= post._id %>/toggle" method="POST" class="d-inline">
                                             <button type="submit" class="btn btn-publish btn-action">
                                                 <%= post.published ? 'Yayından Kaldır' : 'Yayınla' %>
                                             </button>
                                         </form>
-                                        <a href="/admin/edit-post/<%= post.id %>" class="btn btn-edit btn-action">
+                                        <a href="/admin/edit-post/<%= post._id %>" class="btn btn-edit btn-action">
                                             Düzenle
                                         </a>
-                                        <form action="/admin/posts/<%= post.id %>/delete" method="POST" class="d-inline delete-form">
+                                        <form action="/admin/posts/<%= post._id %>/delete" method="POST" class="d-inline delete-form">
                                             <button type="submit" class="btn btn-delete btn-action" onclick="return confirm('Bu yazıyı silmek istediğinizden emin misiniz?')">
                                                 Sil
                                             </button>

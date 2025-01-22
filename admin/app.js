@@ -231,58 +231,81 @@ app.post('/admin/logout', (req, res) => {
 
 app.get('/admin/dashboard', requireAuth, async (req, res) => {
     try {
-        const postsSnapshot = await postsCollection.orderBy('createdAt', 'desc').get();
+        const snapshot = await postsCollection.get();
         const posts = [];
         
-        postsSnapshot.forEach(doc => {
+        snapshot.forEach(doc => {
+            const data = doc.data();
             posts.push({
-                id: doc.id,
-                ...doc.data()
+                _id: doc.id,
+                title: data.title || '',
+                content: data.content || '',
+                coverImage: data.coverImage || '',
+                createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+                published: data.published || false,
+                author: data.author || null
             });
         });
-
+        
+        // Yazıları tarihe göre sırala (en yeni en üstte)
+        posts.sort((a, b) => b.createdAt - a.createdAt);
+        
         res.render('dashboard', { 
-            user: req.session.user,
-            posts: posts
+            posts,
+            message: req.query.message || null,
+            messageType: req.query.messageType || 'info'
         });
     } catch (error) {
         console.error('Dashboard error:', error);
-        res.status(500).send('Bir hata oluştu');
+        res.render('dashboard', { 
+            posts: [],
+            message: 'Blog yazıları yüklenirken bir hata oluştu',
+            messageType: 'danger'
+        });
     }
 });
 
 // Blog post routes
 app.post('/admin/posts', requireAuth, upload.single('coverImage'), async (req, res) => {
     try {
-        console.log('Yeni yazı ekleme isteği alındı');
-        console.log('Body:', req.body);
-        console.log('File:', req.file);
-        
-        const { title, content, published } = req.body;
-        
-        if (!title || !content) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Başlık ve içerik zorunludur' 
+        const { title, content } = req.body;
+        let coverImageUrl = '';
+
+        if (req.file) {
+            // Firebase Storage'a yükle
+            const uniqueFileName = `${uuidv4()}${path.extname(req.file.originalname)}`;
+            const file = bucket.file(`blog-images/${uniqueFileName}`);
+            
+            // Dosyayı Firebase'e yükle
+            await file.save(fs.readFileSync(req.file.path), {
+                metadata: {
+                    contentType: req.file.mimetype,
+                }
             });
+
+            // Public URL al
+            await file.makePublic();
+            coverImageUrl = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/blog-images/${uniqueFileName}`;
+            
+            // Geçici dosyayı sil
+            fs.unlinkSync(req.file.path);
         }
 
-        const post = {
+        // Firestore'a kaydet
+        const docRef = await postsCollection.add({
             title,
             content,
-            coverImage: req.file ? `/uploads/${req.file.filename}` : null,
-            published: published === 'true',
+            coverImage: coverImageUrl,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            published: false,
             author: {
-                email: req.session.user.email,
-                name: req.session.user.name
+                name: req.session.user.name || 'Admin',
+                email: req.session.user.email
             }
-        };
+        });
 
-        const docRef = await postsCollection.add(post);
         res.redirect('/admin/dashboard');
-
     } catch (error) {
         console.error('Yeni yazı ekleme hatası:', error);
         res.status(500).render('error', {
@@ -344,26 +367,32 @@ app.post('/admin/posts/:id', requireAuth, upload.single('coverImage'), async (re
         };
 
         if (req.file) {
-            // Eski resmi sil
+            // Eski resmi Firebase Storage'dan sil
             const oldPost = post.data();
             if (oldPost.coverImage) {
-                const oldImageName = oldPost.coverImage.split('/').pop();
                 try {
-                    await bucket.file(`blog-images/${oldImageName}`).delete();
+                    const oldImageName = oldPost.coverImage.split('/').pop();
+                    const oldImageFile = bucket.file(`blog-images/${oldImageName}`);
+                    await oldImageFile.delete();
                 } catch (err) {
                     console.error('Eski resim silinirken hata:', err);
                 }
             }
 
-            // Yeni resmi yükle
+            // Yeni resmi Firebase Storage'a yükle
             const uniqueFileName = `${uuidv4()}${path.extname(req.file.originalname)}`;
-            const uploadPath = path.join(__dirname, 'public/uploads', uniqueFileName);
+            const file = bucket.file(`blog-images/${uniqueFileName}`);
             
-            // Dosyayı local'e kaydet
-            fs.copyFileSync(req.file.path, uploadPath);
-            
-            // URL'i ayarla
-            updateData.coverImage = `/uploads/${uniqueFileName}`;
+            // Dosyayı Firebase'e yükle
+            await file.save(fs.readFileSync(req.file.path), {
+                metadata: {
+                    contentType: req.file.mimetype,
+                }
+            });
+
+            // Public URL al
+            await file.makePublic();
+            updateData.coverImage = `https://storage.googleapis.com/${process.env.FIREBASE_STORAGE_BUCKET}/blog-images/${uniqueFileName}`;
             
             // Geçici dosyayı sil
             fs.unlinkSync(req.file.path);

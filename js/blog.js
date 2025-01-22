@@ -32,7 +32,7 @@ async function loadBlogPosts() {
         }
         
         posts.forEach(post => {
-            // Firebase Storage'dan gelen coverImage URL'sini kullan
+            // Firebase Storage URL'ini doğrudan kullan
             const imageUrl = post.coverImage || '/images/default.jpg';
             
             const postElement = document.createElement('div');
@@ -42,6 +42,10 @@ async function loadBlogPosts() {
             imageElement.src = imageUrl;
             imageElement.alt = post.title || 'Blog görseli';
             imageElement.className = 'blog-image-content';
+            imageElement.onerror = () => {
+                console.error('Resim yüklenemedi:', imageUrl);
+                imageElement.src = '/images/default.jpg';
+            };
             
             const imageContainer = document.createElement('div');
             imageContainer.className = 'blog-image';
@@ -49,21 +53,39 @@ async function loadBlogPosts() {
             
             const contentDiv = document.createElement('div');
             contentDiv.className = 'blog-content';
-            contentDiv.innerHTML = `
-                <h3>${post.title}</h3>
-                <div class="blog-meta">${new Date(post.createdAt).toLocaleDateString('tr-TR')}</div>
-                <p>${post.content.substring(0, 150)}...</p>
-                <a href="blog-post.html?id=${post._id}" class="read-more">Devamını Oku</a>
-            `;
+            
+            const titleElement = document.createElement('h2');
+            titleElement.textContent = post.title;
+            
+            const dateElement = document.createElement('p');
+            dateElement.className = 'date';
+            const date = new Date(post.createdAt);
+            dateElement.textContent = date.toLocaleDateString('tr-TR');
+            
+            const excerptElement = document.createElement('p');
+            excerptElement.className = 'excerpt';
+            excerptElement.textContent = post.content ? post.content.substring(0, 150) + '...' : '';
+            
+            const readMoreElement = document.createElement('a');
+            readMoreElement.href = `blog-post.html?id=${post._id}`;
+            readMoreElement.className = 'read-more';
+            readMoreElement.textContent = 'Devamını Oku';
+            
+            contentDiv.appendChild(titleElement);
+            contentDiv.appendChild(dateElement);
+            contentDiv.appendChild(excerptElement);
+            contentDiv.appendChild(readMoreElement);
             
             postElement.appendChild(imageContainer);
             postElement.appendChild(contentDiv);
+            
             blogGrid.appendChild(postElement);
         });
     } catch (error) {
         console.error('Blog yazıları yüklenirken hata:', error);
         loadingElement.style.display = 'none';
         errorElement.style.display = 'block';
+        errorElement.textContent = 'Blog yazıları yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.';
     }
 }
 
