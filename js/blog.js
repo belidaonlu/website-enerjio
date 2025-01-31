@@ -28,7 +28,6 @@ async function loadBlogPosts() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const posts = await response.json();
-        console.log('Gelen blog yazıları:', posts);
         
         // Blog yazıları başarıyla yüklendi
         loadingElement.style.display = 'none';
@@ -41,18 +40,52 @@ async function loadBlogPosts() {
         // Son yazıyı sol tarafa yerleştir
         if (posts.length > 0) {
             const lastPost = posts[0];
-            featuredLeftElement.appendChild(createBlogPostElement(lastPost));
+            featuredLeftElement.innerHTML = `
+                <div class="blog-card">
+                    <div class="blog-image">
+                        <img src="${lastPost.coverImage}" alt="${lastPost.title}" class="blog-image-content">
+                    </div>
+                    <div class="blog-content">
+                        <div class="blog-meta">${new Date(lastPost.createdAt).toLocaleDateString('tr-TR')}</div>
+                        <h2>${decodeHTML(lastPost.title)}</h2>
+                        <p>${decodeHTML(lastPost.content).replace(/<[^>]*>/g, ' ').substring(0, 150)}...</p>
+                        <a href="blog-post.html?id=${lastPost._id}" class="blog-read-more">Devamını Oku</a>
+                    </div>
+                </div>
+            `;
         }
 
         // Sonraki 3 yazıyı sağ tarafa yerleştir
-        for (let i = 1; i <= 3 && i < posts.length; i++) {
-            featuredRightElement.appendChild(createBlogPostElement(posts[i]));
-        }
+        const nextThreePosts = posts.slice(1, 4);
+        const rightHTML = nextThreePosts.map(post => `
+            <div class="blog-card">
+                <div class="blog-image">
+                    <img src="${post.coverImage}" alt="${post.title}" class="blog-image-content">
+                </div>
+                <div class="blog-content">
+                    <div class="blog-meta">${new Date(post.createdAt).toLocaleDateString('tr-TR')}</div>
+                    <h2>${decodeHTML(post.title)}</h2>
+                    <a href="blog-post.html?id=${post._id}" class="blog-read-more">Devamını Oku</a>
+                </div>
+            </div>
+        `).join('');
+        featuredRightElement.innerHTML = rightHTML;
 
         // Tüm yazıları alt grid'e yerleştir
-        posts.forEach(post => {
-            blogGridElement.appendChild(createBlogPostElement(post));
-        });
+        const allPostsHTML = posts.map(post => `
+            <div class="blog-card">
+                <div class="blog-image">
+                    <img src="${post.coverImage}" alt="${post.title}" class="blog-image-content">
+                </div>
+                <div class="blog-content">
+                    <div class="blog-meta">${new Date(post.createdAt).toLocaleDateString('tr-TR')}</div>
+                    <h2>${decodeHTML(post.title)}</h2>
+                    <p>${decodeHTML(post.content).replace(/<[^>]*>/g, ' ').substring(0, 150)}...</p>
+                    <a href="blog-post.html?id=${post._id}" class="blog-read-more">Devamını Oku</a>
+                </div>
+            </div>
+        `).join('');
+        blogGridElement.innerHTML = allPostsHTML;
 
     } catch (error) {
         console.error('Blog yazıları yüklenirken hata:', error);
@@ -62,79 +95,19 @@ async function loadBlogPosts() {
     }
 }
 
-function createBlogPostElement(post) {
-    const postElement = document.createElement('div');
-    postElement.className = 'blog-card';
-    
-    const imageUrl = post.coverImage || '/images/default.jpg';
-    
-    const imageElement = document.createElement('img');
-    imageElement.src = imageUrl;
-    imageElement.alt = post.title || 'Blog görseli';
-    imageElement.className = 'blog-image-content';
-    imageElement.onerror = (e) => {
-        console.error('Görsel yüklenemedi:', imageUrl, e);
-        imageElement.src = '/images/default.jpg';
-    };
-    
-    const imageContainer = document.createElement('div');
-    imageContainer.className = 'blog-image';
-    imageContainer.appendChild(imageElement);
-    
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'blog-content';
-    
-    const titleElement = document.createElement('h2');
-    titleElement.textContent = decodeHTML(post.title);
-    
-    const dateElement = document.createElement('p');
-    dateElement.className = 'date';
-    const date = new Date(post.createdAt);
-    dateElement.textContent = date.toLocaleDateString('tr-TR');
-    
-    const excerptElement = document.createElement('p');
-    excerptElement.className = 'excerpt';
-    const decodedContent = decodeHTML(post.content);
-    const plainContent = decodedContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    excerptElement.textContent = plainContent.substring(0, 150) + '...';
-    
-    const readMoreElement = document.createElement('a');
-    readMoreElement.href = `blog-post.html?id=${post._id}`;
-    readMoreElement.className = 'read-more';
-    readMoreElement.textContent = 'Devamını Oku';
-    
-    contentDiv.appendChild(titleElement);
-    contentDiv.appendChild(dateElement);
-    contentDiv.appendChild(excerptElement);
-    contentDiv.appendChild(readMoreElement);
-    
-    postElement.appendChild(imageContainer);
-    postElement.appendChild(contentDiv);
-    
-    return postElement;
-}
-
 // Back to top button functionality
-const backToTopButton = document.querySelector('.back-to-top');
-if (backToTopButton) {
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > 300) {
-            backToTopButton.classList.add('is-visible');
+window.onscroll = function() {
+    const backToTopButton = document.getElementById('scrollToTopBtn');
+    if (backToTopButton) {
+        if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+            backToTopButton.style.display = 'block';
         } else {
-            backToTopButton.classList.remove('is-visible');
+            backToTopButton.style.display = 'none';
         }
-    });
-
-    backToTopButton.addEventListener('click', (e) => {
-        e.preventDefault();
-        window.scrollTo({
-            top: 0,
-            behavior: 'smooth'
-        });
-    });
+    }
 }
 
-// Sayfa yüklendiğinde hangi fonksiyonun çalışacağını belirleyen kontrol eklendi
+// Sayfa yüklendiğinde blog yazılarını yükle
 document.addEventListener('DOMContentLoaded', async () => {
     if (window.location.pathname.includes('blog.html')) {
         loadBlogPosts();
